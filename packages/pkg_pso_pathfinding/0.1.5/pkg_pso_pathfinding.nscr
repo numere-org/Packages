@@ -1,0 +1,479 @@
+#***************************************************************************************************
+ * SCRIPTNAME: pkg_pso_pathfinding 
+ * =================================================================================================
+ * Hinzugefügt: 2025-04-02, um 06:43:15 *#
+
+##~ Füge hier deine Kommandos und Ausdrücke ein.
+<install>
+	<info>
+		-name="PSO Pathfinding"
+		-author="Erik Hänel"
+		-version="0.1.5"
+		-type=TYPE_PACKAGE
+		-license="Apache-2.0"
+		-desc="This package provides a pathfinding algorithm based upon a custom particle swarm optimizer. The convergence was optimized compared to v0.1.1 as well as the possibility to configure the algorithm using parameters as a key-value list.\n\nUpdated to be ready for the upcoming 1.1.5 change."
+		-keywords=""
+		-changelog="2025-04-02 v0.1.5\n c Updated to work with v1.1.7.2504"
+		-flags=DISABLE_SCREEN_OUTPUT
+		-requireversion="1.1.7.2412"
+	<endinfo>
+
+	<file name="<procpath>/pso/psoDriver.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $psoDriver()
+		* ============================================================================================
+		* Hinzugefügt: 2020-09-25, um 10:20:09 *#
+		
+		##! Declare the default parameters for the !!$psoDriver()!! procedure.
+		declare fINITIAL_RAND := 0.01, fITERATION_RAND := 2, nITERATION_COUNT := 80, fINITIAL_ANGLE := 50, nINITIAL_PATHS := 80, fITERATION_V_OFFSET := 0.5, nWINDOW_ID := nan, bSHOW_PATHS := false, bSHOW_BEST := false
+		
+		##! \procedure psoDriver
+		##! Driver procedure for the particle swarm optimizer. This
+		##! procedure is responsible for handling and controlling the
+		##! algorithm on an abstract level. The current number of
+		##! iterations is limited, however due to the fact that the
+		##! area between starting and ending point is covered quite
+		##! well with the initial paths, only a small number of
+		##! iterations is needed until a "good" path has been found 
+		##! (often it already has been found in the initial layout).
+		##!
+		##! \param _map()  Table containing the 2D-map as datagrid
+		##! \param _start{}  Start position vector
+		##! \param _target{}  End position vector
+		##! \param _mobility()  An optional mobility map respecting ground features
+		##! \param _params{}  (!!={""}!!) A key-value list to supply additional algorithm parameters. Use 
+		##! !!"initial.rand"!!, !!"initial.angle"!!, !!"initial.paths"!!, !!"iteration.rand"!!, 
+		##! !!"iteration.count"!!, !!"iteration.v_offset"!!, !!"iteration.showpaths"!!, 
+		##! !!"iteration.showonlybest"!!, !!"heightscale"!!, !!"jump.max"!!, 
+		##! !!"jump.penality"!!, !!"contrib.energy"!!, !!"contrib.velocity"!!, !!"window.id"!! 
+		##! to supply custom values for the algorithm.
+		procedure $psoDriver(_map(), _start{}, _target{}, _mobility(), _params{} = {""}) :: mask
+			## Create local variables
+			var nGlobalBestPath, fInitialRandRange, nIterations, fOpeningAngle, fPathCount, fIterationRandRange, fVelocityOffset, nWindowId = nan, bShowPaths, bShowOnlyBestPath
+			cst weights{}, newWeights{}, sizes{} = _map().size.grid
+			tab paths(), bestPaths(), velocity()
+			
+			## Get the algorithm parameter
+			{fInitialRandRange, fIterationRandRange, nIterations, fOpeningAngle, fPathCount, fVelocityOffset, bShowPaths, bShowOnlyBestPath, nWindowId} = getkeyval(_params{}, \\
+			{"initial.rand", "iteration.rand", "iteration.count", "initial.angle", "initial.paths", "iteration.v_offset", "iteration.showpaths", "iteration.showonlybest", "window.id"}, \\
+			{fINITIAL_RAND, fITERATION_RAND, nITERATION_COUNT, fINITIAL_ANGLE, nINITIAL_PATHS, fITERATION_V_OFFSET, bSHOW_PATHS, bSHOW_BEST, nWINDOW_ID});
+			
+			## Switch to PSO namespace
+			namespace pso
+			
+			## Create the initial set of paths
+			$createInitialPaths(paths(), _start{}, _target{}, fOpeningAngle, fPathCount);
+			
+			## Copy the paths into the best paths table
+			copy paths() -target=bestPaths()
+			
+			## Prepare the velocity table. Note that
+			## velocities at the starting and ending
+			## points will stick to zero to keep them
+			## immovable
+			matop velocity() = 0*paths() + rand(-fInitialRandRange, fInitialRandRange);
+			velocity(1,:) = 0;
+			velocity(nlines, :) = 0;
+			
+			## Calculate the initial path weights
+			weights{} = $calculatePathWeights(paths(), _map(), _mobility(), _params{});
+			
+			## Calculate the global best postion
+			nGlobalBestPath = minpos(weights{});
+			
+			if (is_nan(nGlobalBestPath))
+				nGlobalBestPath = 1;
+			endif
+			
+			## Iterate the optimizer
+			for (i = 1:nIterations)
+				$thisfile~iterationStep(velocity(), paths(), bestPaths(), nGlobalBestPath, sizes{}, fIterationRandRange, fVelocityOffset);
+				newWeights{} = $calculatePathWeights(paths(), _map(), _mobility(), _params{});
+				nGlobalBestPath = $thisfile~updateBestPaths(paths(), bestPaths(), weights{}, newWeights{});
+				
+				## Show the current status
+				if (!is_nan(nWindowId))
+					window nWindowId -set value=rint(i/nIterations*100) item=0;
+					
+					## Does the user want to see the current paths?
+					if (bShowPaths)
+						$thisfile~showIntermediateResults(_map(), paths(), nGlobalBestPath, nWindowId, bShowOnlyBestPath);
+					endif
+				else
+					progress i -set last=nIterations type=bar
+				endif
+			endfor
+			
+			print "Shortest path: " + #weights{nGlobalBestPath}
+			print "Median of all weights: " + #med(weights{})
+			
+			## Present the results to the user
+			$presentResults(_map(), bestPaths(), nGlobalBestPath, _mobility(), nWindowId);
+			
+			return true;
+		endprocedure
+		
+		
+		
+		##! \procedure iterationStep
+		##! This procedure performs a single iteration step of the 
+		##! particle swarm. The particles have moved one step after
+		##! calling this procedure. This procedure also ensures that 
+		##! the particles are inside of the valid data range. Due to
+		##! the fact that the map is only defined at discrete positions,
+		##! the particles coordinates are rounded to the nearest valid
+		##! coordinates, which are defined for the grid.
+		##!
+		##! \param _velocity()&  Table containing the velocities of each "path" particle
+		##! \param _paths()&  Table containing all calculated paths
+		##! \param _bestPaths()  Table containing the best paths found by any iteration
+		##! \param _nGlobalBestPath  Index indicating the best of all best paths
+		##! \param _samples{}  Number of samples in each direction of the current grid
+		##! \param _fRandRange  The range of the random numbers
+		##! \param _fVelOffset  An additional velocity offset
+		procedure $iterationStep(_velocity()&, _paths()&, _bestPaths(), _nGlobalBestPath, _samples{}, _fRandRange, _fVelOffset)
+			var nPaths = num(_paths(1,:))/2, nPathSamples = num(_paths(:, 1))-3, fRandSelfBest, fRandGlobalBest
+			lclfunc prand(n) := perlin({0:nPathSamples}/nPathSamples, n)/16*_fRandRange + _fVelOffset
+			
+			## Update velocities
+			for (i = 1:nPaths) ## better use perlin({0:SIZE}/SIZE, rand(0, 1))+1 ?
+				{fRandSelfBest, fRandGlobalBest} = {1,1}*rand(0, _fRandRange);
+				_velocity(2:nlines-1, 2*i-1) += prand(fRandSelfBest) * (_bestPaths(2:nlines-1, 2*i-1) - _paths(2:nlines-1, 2*i-1)) + prand(fRandGlobalBest) * (_bestPaths(2:nlines-1, 2*_nGlobalBestPath-1) - _paths(2:nlines-1, 2*i-1));
+				{fRandSelfBest, fRandGlobalBest} = {1,1}*rand(0, _fRandRange);
+				_velocity(2:nlines-1, 2*i) += prand(fRandSelfBest) * (_bestPaths(2:nlines-1, 2*i) - _paths(2:nlines-1, 2*i)) + prand(fRandGlobalBest) * (_bestPaths(2:nlines-1, 2*_nGlobalBestPath) - _paths(2:nlines-1, 2*i));
+			endfor
+			
+			## Smooth the veloctiy to restore coherence
+			smooth _velocity(2:nlines-1,:) -set cols order=2
+			
+			## Update positions
+			matop _paths() = _paths() + _velocity();
+			smooth _paths(2:nlines-1,:) -set cols order=2
+			matop _paths() = rint(_paths());
+			
+			## Ensure that the positions are in the valid 
+			## data range
+			matop _paths(:, {1:2:2*nPaths}) = _paths(:, {1:2:2*nPaths}) > _samples{1} ? _samples{1} : (_paths(:, {1:2:2*nPaths}) < 1 ? 1 : _paths(:, {1:2:2*nPaths}));
+			matop _paths(:, {2:2:2*nPaths}) = _paths(:, {2:2:2*nPaths}) > _samples{2} ? _samples{2} : (_paths(:, {2:2:2*nPaths}) < 1 ? 1 : _paths(:, {2:2:2*nPaths}));
+			
+			return void
+		endprocedure
+		
+		
+		
+		##! \procedure updateBestPaths
+		##! This procedure updates the best paths for each calculated
+		##! path and returns the global best path.
+		##!
+		##! \param _paths()  Table containing all calculated paths
+		##! \param _bestPaths()&  Table containing the best paths found by any iteration
+		##! \param _weights{}&  Weights from the last iteration. Will be updated in this procedure
+		##! \param _newWeights{}  Weights from the current iteration
+		##! \return VAL  The index of the minimal weighting value
+		procedure $updateBestPaths(_paths(), _bestPaths()&, _weights{}&, _newWeights{})
+			## Find the best path for each calculated
+			## path in the table
+			for (i = 1:num(_weights{}))
+				if (_newWeights{i} < _weights{i})
+					_bestPaths(:, 2*i-1) = _paths(:, 2*i-1);
+					_bestPaths(:, 2*i) = _paths(:, 2*i);
+					_weights{i} = _newWeights{i};
+				endif
+			endfor
+			
+			## Return the global best path ID
+			return is_nan(minpos(_weights{})) ? 1 : minpos(_weights{});
+		endprocedure
+		
+		
+		##! \procedure showIntermediateResults
+		##! Displays the intermediate results during the iteration into the corresponding window
+		##! of the passed window ID.
+		##!
+		##! \param _map()  The used map
+		##! \param _paths()  The current path coordinates (in grid coordinates)
+		##! \param _nGlobalBestPath  The ID of the current best path
+		##! \param _nWinID  The target window ID
+		##! \param _bShowOnlyBestPath  Show only the best path?
+		procedure $showIntermediateResults(_map(), _paths(), _nGlobalBestPath, _nWinID, _bShowOnlyBestPath)
+			tab convPaths()
+			
+			for (i = 1:num(_paths(1,:))/2)
+				convPaths(:, 2*i-1) = _map(_paths(:, 2*i-1), 1);
+				convPaths(:, 2*i) = _map(_paths(:, 2*i), 2);
+			endfor
+			
+			## Show best or a selection of paths
+			if (_bShowOnlyBestPath)
+				compose
+					dens _map() -set streamto={_nWinID, 100} reset box aspect=1
+					plot convPaths(:, 2*_nGlobalBestPath-1:2*_nGlobalBestPath) "ID="+#_nGlobalBestPath -set interpolate
+				endcompose
+			else
+				compose
+					dens _map() -set streamto={_nWinID, 100} reset box aspect=1
+					plot convPaths(:, 1:2) "", convPaths(:, 3:4) "", convPaths(:, 5:6) "", convPaths(:, 7:8) "", convPaths(:, 9:10) "", convPaths(:, 21:22) "", convPaths(:, 23:24) "", convPaths(:, 25:26) "", convPaths(:, 27:28) "", convPaths(:, 29:30) "", convPaths(:, 41:42) "", convPaths(:, 43:44) "", convPaths(:, 45:46) "", convPaths(:, 47:48) "", convPaths(:, 49:50) "" -set interpolate
+				endcompose
+			endif
+			
+			return void;
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://sites.google.com/site/numereframework/
+		**********************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/pso/calculatePathWeights.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $calculatePathWeights()
+		* ============================================================================================
+		* Hinzugefügt: 2020-09-25, um 09:57:23 *#
+		
+		##! Declare the default parameters for the !!$calculatePathWeights()!! procedure.
+		declare fHEIGHTSCALE := 4, nJUMP_MAX := 4, fJUMP_PENALITY := 100, fCONTRIB_ENERGY := 0.1, fCONTRIB_VELOCITY := 10
+		
+		##! \procedure calculatePathWeights
+		##! Calculates the weights of the paths, which are depending on the 
+		##! selected optimisation method.
+		##!
+		##! \param _paths()  Table containing all calculated paths
+		##! \param _map()  Table containing the 2D-map as datagrid
+		##! \param _mobility()  Table containing an optional mobility map representing ground features
+		##! \param _params{}  A key-value list containing algorithm parameters
+		##! \return {VAL}  The calculated path weights for every path as components in this vector
+		procedure $calculatePathWeights(_paths(), _map(), _mobility(), _params{}) :: mask private
+			## Create local variables
+			cst weights{}, heightdiff{}, velocity{}, energyConsumption{}
+			tab rows(), cols(), heightdiffs(), pathlengths(), velocities()
+			var nPaths = num(_paths(1,:))/2, fHeightScale = 4, nMaxJumps = 4, fJumpPenality = 100, fEnergyContribution = 0.1, fVelocityContribution = 10
+			
+			{fHeightScale, nMaxJumps, fJumpPenality, fEnergyContribution, fVelocityContribution} = getkeyval(_params{}, \\
+			{"heightscale", "jump.max", "jump.penality", "contrib.energy", "contrib.velocity"}, \\
+			{fHEIGHTSCALE, nJUMP_MAX, fJUMP_PENALITY, fCONTRIB_ENERGY, fCONTRIB_VELOCITY});
+			
+			## Initialize the weights with zero
+			weights{} = 0*{1:nPaths};
+			heightdiff{} = 0*{1:nPaths};
+			energyConsumption{} = 0*{1:nPaths};
+			
+			## Prepare paths and pre-calculate the height differences
+			matop rows() = _paths(:, {1:2:ncols});
+			matop cols() = _paths(:, {2:2:ncols});
+			matop heightdiffs() = select(_map(), rows(2:,:), cols(2:,:)+2) - select(_map(), rows(:nlines-1,:), cols(:nlines-1, :)+2);
+			
+			## Calculate path lengths
+			matop pathlengths() = sqrt((select(_map(), rows(2:,:), 1) - select(_map(), rows(:nlines-1,:), 1))^2 \\
+			+ (select(_map(), cols(2:,:), 2) - select(_map(), cols(:nlines-1,:), 2))^2 \\
+			+ fHeightScale*heightdiffs()^2);
+			
+			if (and(_mobility().size))
+				matop velocities() = select(_mobility(), rows(:nlines-1,:), cols(:nlines-1, :)+2);
+				matop velocities() = velocities() < 2 ? 0 : velocities();
+			endif
+			
+			## Apply jumping penality
+			matop pathlengths() = sqrt((rows(2:, :)-rows(:nlines-1,:))^2 + (cols(2:,:)-cols(:nlines-1,:))^2) > nMaxJumps ? pathlengths() * fJumpPenality : pathlengths();
+			
+			## Calculate each step for the current
+			## path
+			for (j = 1:num(_paths(:, 1))-1)
+				## Current velocity
+				if (!num(velocities(:, 1)))
+					heightdiff{} += heightdiffs(j, :);
+					velocity{} = (_map().max.grid - _map().min.grid) - sign(heightdiff{}) * sqrt(2*abs(heightdiff{}));
+				else
+					velocity{} = velocities(j, :);
+				endif
+				
+				energyConsumption{} = heightdiffs(j, :) > 0 ? heightdiffs(j, :) : 0;
+				
+				## Combine path length, velocity and energy
+				weights{} += fEnergyContribution*energyConsumption{} + pathlengths(j, :)*(1 + fVelocityContribution/velocity{});
+			endfor
+			
+			weights{} = is_nan(weights{}) ? inf : weights{};
+			
+			## Return the weights
+			return weights{};
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://sites.google.com/site/numereframework/
+		**********************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/pso/createInitialPaths.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $createInitialPaths()
+		* ============================================================================================
+		* Hinzugefügt: 2020-09-24, um 15:48:40 *#
+		
+		##! Declare a constant for the !!$createInitialPaths()!! procedure.
+		declare fSAMPLEFACT := 1.15
+		
+		##! \procedure createInitialPaths 
+		##! This procedure creates the initial set of the diamond-shaped paths connecting
+		##! starting und ending positions. The half-angles at the starting and ending 
+		##! points for the outermost paths can be altered using the !!_fAngle!! parameter,
+		##! which defaults to 45 degrees. Therefore, the default diamond shape actually 
+		##! describes a square with the starting and ending points located at the opposite 
+		##! corners. 
+		##!
+		##! The number of paths is always odd, because the central path will always
+		##! be calculated and only the number of non-central paths may be changed. The
+		##! non-central paths are distributed equally between the two outermost paths and
+		##! the central path to achieve best possible coverage of the diamond-shaped area
+		##! at algorithm start-up. The calculated path samples are actually rounded to the
+		##! nearest valid grid position.
+		##!
+		##! \param _paths()&  Table containing all calculated paths
+		##! \param _start{}  Start position vector
+		##! \param _target{}  End position vector
+		##! \param _fAngle  (!!=45!!) Opening half-angle of the diamond-shaped paths
+		##! \param _nPathCount  (!!=40!!) Number of non-central paths
+		procedure $createInitialPaths(_paths()&, _start{}, _target{}, _fAngle = 45, _nPathCount = 40) :: mask private
+			## Create local variables
+			var fAngleStep = 2 * radian(_fAngle) / _nPathCount, nSamples = rint(fSAMPLEFACT*max(abs(_start{}-_target{}))) + 1, fLength = norm(_start{}-_target{})
+			cst normalvect{} = {-(_target{2}-_start{2}), _target{1}-_start{1}}, midpos{}
+			
+			## Normalize the normal vector
+			normalvect{} /= norm(normalvect{}) ;
+			nSamples = nSamples % 2 ? nSamples : nSamples + 1;
+			
+			## Calculate the central path
+			_paths(:, 1) = eval rint(x) -set [_start{1}:_target{1}] samples=nSamples;
+			_paths(:, 2) = eval rint(x) -set [_start{2}:_target{2}] samples=nSamples;
+			
+			## Calculate the non-central paths
+			for (i = 1:roof(_nPathCount/2))
+				## Upper half of the non-central paths
+				midpos{} = _start{} + (_target{}-_start{}) / 2 + fLength/2*tan(fAngleStep * i) * normalvect{};
+				_paths(:, 2*i+1) = $thisfile~createComponent(_start{}, _target{}, midpos{}, 1, nSamples);
+				_paths(:, 2*i+2) = $thisfile~createComponent(_start{}, _target{}, midpos{}, 2, nSamples);
+				
+				## Lower half of the non-central paths
+				midpos{} = _start{} + (_target{}-_start{}) / 2 - fLength/2*tan(fAngleStep * i) * normalvect{};
+				_paths(:, 2*i+1+2*_nPathCount/2) = $thisfile~createComponent(_start{}, _target{}, midpos{}, 1, nSamples);
+				_paths(:, 2*i+2+2*_nPathCount/2) = $thisfile~createComponent(_start{}, _target{}, midpos{}, 2, nSamples);
+			endfor
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure createComponent
+		##! Creates a single component of one of the diamond-shaped paths. The component
+		##! can be selected by the corresponding number.
+		##!
+		##! \param _start{}  Start position vector
+		##! \param _target{}  End position vector
+		##! \param _midpos{}  Position of the middle corner of the diamond shape
+		##! \param _nComponent  ID of the component to be calculated [1,2]
+		##! \param _nSamples  Number of samples per path
+		##! \return {VAL}  The sample positions of this component rounded to the corresponding grid positions
+		procedure $createComponent(_start{}, _target{}, _midpos{}, _nComponent, _nSamples)
+			cst res{}
+			res{} = eval x -set [_start{_nComponent}:_midpos{_nComponent}] samples=(_nSamples/2+1);
+			res{nlen:} = eval x -set [_midpos{_nComponent}:_target{_nComponent}] samples=(_nSamples/2+1);
+			return rint(res{});
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://sites.google.com/site/numereframework/
+		**********************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/pso/presentResults.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $presentResults()
+		* ============================================================================================
+		* Hinzugefügt: 2020-09-25, um 10:49:34 *#
+		
+		##! \procedure presentResults
+		##! Presents the optimized path ontop of the map used for optimisation.
+		##!
+		##! \param _map()  Table containing the 2D-map as datagrid
+		##! \param _bestPaths()  Table containing the best paths found by any iteration
+		##! \param _nGlobalBestPath  Index indicating the best of all best paths
+		##! \param _mobility()  Table containing an optional mobility map representing ground features
+		##! \param _nWindowId  Target window id to display the results in
+		procedure $presentResults(_map(), _bestPaths(), _nGlobalBestPath, _mobility(), _nWindowId) :: mask private
+			## Create local variables
+			tab track()
+			var fColorRangeMax
+			
+			## Copy the positions of the global best path
+			copy _bestPaths({1:nlines}, 2*_nGlobalBestPath-1:2*_nGlobalBestPath) -target=track()
+			
+			## Get the corresponding z values
+			for (i = 1:num(track(:, 1)))
+				track(i, 3) = _map(track(i, 1), track(i, 2)+2);
+			endfor
+			
+			## Transform grid coordinates to real coordinates
+			track(:, 1) = _map(track(:, 1), 1);
+			track(:, 2) = _map(track(:, 2), 2);
+			
+			## Displays the path ontop of the map
+			if (and(_mobility().size) && !is_nan(_nWindowId))
+				fColorRangeMax = 1.05*_mobility().max.grid;
+				
+				compose 
+					surf _map(), _mobility() -set alpha=0.2 colormask box rotate=0,0 colorrange=0:fColorRangeMax reset aspect=1 streamto={_nWindowId, 101} light=smooth
+					plot3d track() "" -set interpolate 
+				endcompose
+			elseif (and(_mobility().size))
+				fColorRangeMax = 1.05*_mobility().max.grid;
+				
+				compose 
+					surf _map(), _mobility() -set alpha=0.2 colormask box rotate=0,0 colorrange=0:fColorRangeMax reset aspect=1
+					plot3d track() "Best path" -set interpolate
+				endcompose
+			else
+				compose 
+					surf _map() -set alpha=0.2 box rotate=0,0
+					plot3d track() "Best path" -set interpolate
+				endcompose
+			endif
+			
+			if (!is_nan(_nWindowId))
+				compose 
+					dens _map() -set noalpha box reset aspect=1 streamto={_nWindowId, 100}
+					plot3d track() "" -set interpolate rotate=0,0
+				endcompose
+			else
+				compose 
+					dens _map() -set noalpha box reset aspect=1
+					plot3d track() "Best path" -set interpolate rotate=0,0
+				endcompose
+			endif
+			
+			return void;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://sites.google.com/site/numereframework/
+		**********************************************************************************************#
+		
+	<endfile>
+
+	return;
+<endinstall>
+
+warn "Dies ist ein Installations-Script. Um die enthaltenen Prozeduren zu installieren, muss es mit 'install \"<this>/pkg_pso_pathfinding\"' ausgeführt werden."
+
+
+#**Ende der Datei
+ * NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+ * https://www.numere.org/
+ **************************************************************************************************#

@@ -1,0 +1,11 @@
+{
+	"author": "Erik Hänel",
+	"description": "A GUI for the PSO Pathfinding package. NOTE: This plugin needs the current development version of NumeRe v1.1.4",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "PSO Pathfinding GUI",
+	"requirements": {
+		"packages": "pkg_tools,pkg_pso_pathfinding",
+		"version": "1.1.3"
+	}
+}

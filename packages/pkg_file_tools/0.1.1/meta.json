@@ -1,0 +1,12 @@
+{
+	"author": "Erik Hänel",
+	"changelog": "2025-10-30 v0.1.1\n  c Resolved problems with importing and exporting of INI files\n  c Resolved a problem with the XML tools\n2025-03-28 v0.1.0\n  c Changed code to work with v1.1.7.2504\n  + Modernized some features to speed up calculation\n2024-06-06 v0.0.9\n  + Added $ini~serialize() to convert a config to a printable representation\n  + Added $ini~deserialize() to undo the serialisation\n  c Changed $ini~read() and $ini~write() correspondingly\n  + Added a check in $ini~getGroup() to ensure that the group exists\n2023-06-02 v0.0.8\n  c $tools~findApp() was modified to improve the chance of finding the searched app\n2023-02-16 v0.0.7\n  + Added more tests to $xml~getTree()\n  c Improved the behavior if selected root trees cannot be found\n2023-02-16 v0.0.6\n  + Added xml namespace with extraction functionalities\n2022-12-30 v0.0.5\n  + Added keywords\n  + Added changeslog",
+	"description": "This package provides tools for some selected filetypes to simplify the interaction with these kinds of files. Currently supported are INI files, LOG files and XML files (at least reading). Additionally, some generic file-oriented tools are available.\n",
+	"keywords": "Configuration,Logging,Ini,xml,Helpers,Handlers",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "File tools",
+	"requirements": {
+		"version": "1.1.7.2508"
+	}
+}

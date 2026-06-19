@@ -1,0 +1,452 @@
+#***************************************************************************************************
+ * SCRIPTNAME: pkg_database 
+ * =================================================================================================
+ * Hinzugefügt: 2025-11-06, um 12:01:24 *#
+
+##~ Füge hier deine Kommandos und Ausdrücke ein.
+<install>
+	<info>
+		-name="Database"
+		-author="Erik Hänel"
+		-version="0.0.3"
+		-type=TYPE_PACKAGE
+		-license="Apache-2.0"
+		-desc="Provides an abstract interface to databases to make them usable without the extensive need of SQL syntax."
+		-keywords="database,sql,sqlite"
+		-changelog="2025-11-06 v0.0.3\n  + Added SQLite type affinities to stored tables to preserve types\n\n2025-11-06 v0.0.2\n  c Corrections for empty cells\n  + Adds meta tables to saved tables with types and units\n  + Renaming and deletion considers meta tables\n\n2025-11-05 v0.0.1\n  Initial version\n  + Added support for SQLite"
+		-flags=DISABLE_SCREEN_OUTPUT
+		-requireversion="1.1.7.2508"
+	<endinfo>
+
+	<file name="<procpath>/db/sqlite/tests.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $tests()
+		* =================================================================================================
+		* Hinzugefügt: 2025-11-05, um 16:22:41 *#
+		
+		declare sDBFILE := "<this>/test.db", sMISSINGFILE := "<this>/missing.db"
+		
+		##! \procedure tests
+		##! Perform SQLite package tests.
+		procedure $tests()
+			namespace thisfile
+			
+			$save();
+			$list();
+			$load();
+			$rename();
+			$delete();
+			
+			print "db~sqlite: Cleaning up ..."
+			if (findfile(sDBFILE))
+				remove sDBFILE -ignore;
+			endif
+			return void;
+		endprocedure
+		
+		
+		##! \procedure save
+		##! Test the saving possibility.
+		procedure $save() :: explicit test
+			print "db~sqlite: Save test ..."
+			tab smallTab(), largeTab(), partly()
+			smallTab(:, 1) = {1:10};
+			smallTab(:, 2) = "Number #" + #smallTab(:, 1);
+			smallTab(#, :) = {"Numbers", "Strings"};
+			largeTab(:, 1) = {1:1000};
+			largeTab(:, 2) = "Number #" + #largeTab(:, 1);
+			largeTab(:, 3) = 2*largeTab(:,1) + I*largeTab(:,1);
+			largeTab(:, 4) = today() + seconds(largeTab(:, 1));
+			largeTab(#, :) = {"Numbers", "Strings", "Complex Values", "DateTime"};
+			largeTab().setunit(1, "unit");
+			
+			partly(:, 1) = {1:10};
+			partly(:, 2) = {1:5};
+			partly(:, 3) = "No: " + #{1:5};
+			partly(:, 4) = {1:30}+_pi;
+			partly(1:5, 4) = nan;
+			
+			$this~save(sDBFILE, "small", smallTab());
+			$this~save(sDBFILE, "large", largeTab());
+			$this~save(sDBFILE, "partly", partly());
+			return void;
+		endprocedure
+		
+		
+		##! \procedure list
+		##! Test the listing possibility.
+		procedure $list() :: explicit test
+			print "db~sqlite: List test ..."
+			assert $this~list(sMISSINGFILE) == "";
+			assert $this~list(sDBFILE) == {"small", "small.meta", "large", "large.meta", "partly", "partly.meta"};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure load
+		##! Test the loading possibility.
+		procedure $load() :: explicit test
+			print "db~sqlite: Load test ..."
+			tab loaded1(), loaded2(), loaded3()
+			loaded1() = $this~load(sMISSINGFILE, "table");
+			assert loaded1().rows == 0;
+			loaded1() = $this~load(sDBFILE, "table");
+			assert loaded1().rows == 0;
+			loaded1() = $this~load(sDBFILE, "small");
+			assert loaded1().size == {10, 2};
+			assert loaded1().typeof({1, 2}) == {"value.i8", "string"};
+			loaded2() = $this~load(sDBFILE, "large");
+			assert loaded2().size == {1000, 4};
+			assert loaded2().typeof({1:4}) == {"value.i16", "string", "value", "datetime"};
+			assert loaded2().getunit(1) == "unit";
+			loaded3() = $this~load(sDBFILE, "partly");
+			assert loaded3().size == {30, 4};
+			assert loaded3().typeof({1:4}) == {"value.i8", "value.i8", "string", "value.f64"};
+			assert loaded3().num.cols == {10, 5, 5, 25};
+			assert is_nan(loaded3(1:5, 4));
+			return void;
+		endprocedure
+		
+		
+		##! \procedure rename
+		##! Test the renaming feature.
+		procedure $rename() :: explicit test
+			print "db~sqlite: Rename test ..."
+			assert $this~rename(sMISSINGFILE, "table", "mytable") == false;
+			assert $this~rename(sDBFILE, "table", "mytable") == false;
+			assert $this~rename(sDBFILE, "small", "smalltable") == true;
+			assert $this~list(sDBFILE) == {"smalltable", "smalltable.meta", "large", "large.meta", "partly", "partly.meta"};
+			assert $this~rename(sDBFILE, "smalltable", "small") == true;
+			assert $this~list(sDBFILE) == {"small", "small.meta", "large", "large.meta", "partly", "partly.meta"};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure delete
+		##! Test the delete table feature.
+		procedure $delete() :: explicit test
+			print "db~sqlite: Delete test ..."
+			assert $this~delete(sMISSINGFILE, "table") == false;
+			assert $this~delete(sDBFILE, "large") == true;
+			assert $this~list(sDBFILE) == {"small", "small.meta", "partly", "partly.meta"};
+			return void;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/db/sqlite/delete.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $delete()
+		* =================================================================================================
+		* Hinzugefügt: 2025-11-05, um 16:07:25 *#
+		
+		##! \procedure delete
+		##! Deletes the selected table from the passed database file. Returns true, if the database file 
+		##! exists and a table delete was performed, false, if the file does not exist.
+		##!
+		##! \param _sSqliteDataBase  The path to the SQLite database file
+		##! \param _sTableName  The SQL table name to be deleted
+		##! \return LOG  true, if a delete attempt was performed, false if the file does not exist
+		procedure $delete(_sSqliteDataBase, _sTableName) :: explicit mask
+			var nDB
+			tab result()
+			
+			## Ensure the file exists
+			if (findfile(_sSqliteDataBase))
+				## Open the connection
+				nDB = database _sSqliteDataBase -set type=sqlite;
+				
+				## Drop the table, if it exists
+				database nDB -set sql="DROP TABLE IF EXISTS \"" + _sTableName + "\"";
+				database nDB -set sql="DROP TABLE IF EXISTS \"" + _sTableName + ".meta\"";
+				
+				## close the connection
+				database nDB -close;
+				
+				return true;
+			endif
+			
+			return false;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/db/sqlite/list.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $list()
+		* =================================================================================================
+		* Hinzugefügt: 2025-11-04, um 14:13:15 *#
+		
+		##! \procedure list
+		##! List all tables within the SQLite file, which are not SQLite internal tables. If the passed 
+		##! file does not exist, an empty string is returned.
+		##!
+		##! \param _sSqliteDataBase  The file path to the SQLite database file
+		##! \return {STR}  A list containing all available tables in the database file
+		procedure $list(_sSqliteDataBase) :: explicit mask
+			var nDB
+			tab result()
+			
+			## Ensure that the SQLite file exists
+			if (findfile(_sSqliteDataBase))
+				## Open the connection
+				nDB = database _sSqliteDataBase -set type=sqlite;
+				
+				## Extract the table list
+				database nDB -set sql="SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'" target=result();
+				
+				## Close the connection
+				database nDB -close;
+				
+				## Return the list
+				return result(:, 1);
+			endif
+			
+			## Return an empty string otherwise
+			return "";
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/db/sqlite/load.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $load()
+		* =================================================================================================
+		* Hinzugefügt: 2025-11-04, um 14:16:55 *#
+		
+		##! \procedure load
+		##! Load the specified table from the SQLite database file, if the database file exists. Otherwise, 
+		##! an empty table is returned. If the database file exists, but not the table within the database 
+		##! file, also an empty table is returned.
+		##!
+		##! \param _sSqliteDataBase  The path to an SQLite database file
+		##! \param _sTableName  The selected SQL table to be extracted from the file
+		##! \return TAB  The extracted table, if possible
+		procedure $load(_sSqliteDataBase, _sTableName) :: explicit mask
+			var nDB
+			tab result(), check(), meta()
+			
+			## Ensure the file exists
+			if (findfile(_sSqliteDataBase))
+				## Open the connection
+				nDB = database _sSqliteDataBase -set type=sqlite;
+				
+				## Try to find the table in the SQLite file first
+				database nDB -set sql="SELECT name FROM sqlite_schema WHERE type='table' AND name='" + _sTableName + "'" target=check();
+				
+				## Extract the selected table, if it exists
+				if (check().rows)
+					database nDB -set sql="SELECT * FROM \"" + _sTableName + "\"" target=result();
+					
+					clear check() -ignore;
+					
+					## Try to find the meta table in the SQLite file
+					database nDB -set sql="SELECT name FROM sqlite_schema WHERE type='table' AND name='" + _sTableName + ".meta'" target=check();
+					
+					## Extract the meta table and apply its information
+					if (check().rows)
+						database nDB -set sql="SELECT * FROM \"" + _sTableName + ".meta\"" target=meta();
+						
+						## Apply the meta information to each column
+						for (i = 1:meta().cols)
+							if (meta(1, i) == "string")
+								result(:, i) = to_ansi(result(:, i));
+							endif
+							
+							result().convert(i, meta(1, i));
+							result().setunit(i, to_ansi(meta(2, i)));
+						endfor
+					endif
+				endif
+				
+				## close the connection
+				database nDB -close;
+			endif
+			
+			## Return the table, which might be empty, if the database file was not existing
+			return result();
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/db/sqlite/rename.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $rename()
+		* =================================================================================================
+		* Hinzugefügt: 2025-11-05, um 16:09:35 *#
+		
+		##! \procedure rename
+		##! Renames the selected table with a new name in the passed SQLite database file. Returns true, if 
+		##! the table was renamed, false, if either the file does not exist or the table was not part of 
+		##! the database in the first place.
+		##!
+		##! \param _sSqliteDataBase  The path to the SQLite database file
+		##! \param _sOldTableName  The table name of the table to be renamed
+		##! \param _sNewTableName  The new table name
+		##! \return LOG  true, if the table was renamed, false otherwise
+		procedure $rename(_sSqliteDataBase, _sOldTableName, _sNewTableName) :: explicit mask
+			var nDB
+			tab result()
+			
+			## Ensure the file exists
+			if (findfile(_sSqliteDataBase))
+				## Open the connection
+				nDB = database _sSqliteDataBase -set type=sqlite;
+				
+				## Try to find the table in the SQLite file first
+				database nDB -set sql="SELECT name FROM sqlite_schema WHERE type='table' AND name='" + _sOldTableName + "'" target=result();
+				
+				## Rename the selected table and its meta information, if it exists
+				if (result().rows)
+					database nDB -set sql="ALTER TABLE \"" + _sOldTableName + "\" RENAME TO \"" + _sNewTableName + "\"" target=result();
+					
+					clear result() -ignore;
+					
+					## Try to find the meta table in the SQLite file
+					database nDB -set sql="SELECT name FROM sqlite_schema WHERE type='table' AND name='" + _sOldTableName + ".meta'" target=result();
+					
+					## Rename the meta table as well
+					if (result().rows)
+						database nDB -set sql="ALTER TABLE \"" + _sOldTableName + ".meta\" RENAME TO \"" + _sNewTableName + ".meta\"" target=result();
+					endif
+				else
+					## Otherwise just return false after closing the connection
+					database nDB -close;
+					return false;
+				endif
+				
+				## close the connection
+				database nDB -close;
+				return true;
+			endif
+			
+			return false;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/db/sqlite/save.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $save()
+		* =================================================================================================
+		* Hinzugefügt: 2025-11-04, um 14:22:15 *#
+		
+		declare sTYPES := {"value.i8", "value.ui8", "value.i16", "value.ui16", "value.i32", "value.ui32", "value.i64", "value.ui64", "logical", "value.f32", "value.f64", "value.cf32", "value.cf64",   "value", "string", "category", "datetime", "none"}
+		declare sMAPTO := { "INTEGER",   "INTEGER",   "INTEGER",    "INTEGER",   "INTEGER",    "INTEGER",   "INTEGER",    "INTEGER", "INTEGER",      "REAL",      "REAL",    "NUMERIC",    "NUMERIC", "NUMERIC",   "TEXT",     "TEXT",     "TEXT", "BLOB"}
+		
+		##! \procedure save
+		##! Save the passed table with the selected name in the selected SQLite database file. If the 
+		##! database file does not exist, it will be created.
+		##!
+		##! \remark If a table with the selected name already exists in the database file, it will be 
+		##! dropped in advance.
+		##!
+		##! \param _sSqliteDataBase  The path to the SQLite database file
+		##! \param _sTableName  The table name to store the table to
+		##! \param _table()  The table to be stored
+		procedure $save(_sSqliteDataBase, _sTableName, _table()) :: explicit mask
+			var nDB
+			str sTableConfig, sTableCreation, sTableMetaConfig, sValues, sMetaValues
+			obj oTypeMapping = dictstruct(sTYPES, sMAPTO)
+			
+			## Create the SQL table definition string for the passed table
+			sTableConfig = "\"" + _sTableName + "\" (" + strjoin("\"" + _table(#, :) + "\"", ", ") + ")";
+			sTableCreation = "\"" + _sTableName + "\" (" + strjoin("\"" + _table(#, :) + "\"" + " " + oTypeMapping.at(_table().typeof({1:ncols})), ", ") + ")";
+			sTableMetaConfig = "\"" + _sTableName + ".meta\" (" + strjoin("\"" + _table(#, :) + "\"", ", ") + ")";
+			
+			## Prepare the meta information for this table
+			sMetaValues = strjoin("'" + _table().typeof({1:ncols}) + "'", ",");
+			sMetaValues[2] = strjoin("'" + to_utf8(_table().getunit({1:ncols})) + "'", ","); ## fix the usage of nSizes[2] by adding a mangler
+			
+			## Gather all values into a string vector
+			for (i = 1:_table().cols)
+				if (i > 1)
+					sValues += ",";
+				endif
+				
+				## Depending on the column type, the values are formatted differently
+				switch (_table().typeof(i))
+				case "string":
+				case "category":
+					## Strings and categories are converted to string literals
+					sValues += "'" + to_utf8(replaceall(#_table(1:nrows, i), "'", "''")) + "'";
+					break;
+				case "datetime":
+					## Datetime values are converted to UTC ISO8601 strings formatted as string literals
+					sValues += timeformat("'YYYY-MM-DDTHH:mm:ss'", _table(1:nrows, i));
+					break;
+				default:
+					## Everything else is simply converted as a string if it is not a complex value
+					sValues += is_nan(_table(1:nrows, i)) ? "NULL" : (imag(_table(1:nrows, i)) != 0 ? "'" + #_table(1:nrows, i) + "'" : #_table(1:nrows, i));
+				endswitch
+			endfor
+			
+			## Open the database connection
+			nDB = database _sSqliteDataBase -set type=sqlite;
+			
+			## Drop the table, if it already exists
+			database nDB -set sql="DROP TABLE IF EXISTS \"" + _sTableName + "\"";
+			database nDB -set sql="DROP TABLE IF EXISTS \"" + _sTableName + ".meta\"";
+			
+			## Re-create the table and store the values in the table
+			database nDB -set sql="CREATE TABLE " + sTableCreation;
+			database nDB -set sql="INSERT INTO " + sTableConfig + " VALUES " + strjoin("(" + sValues + ")", ", ") + ";";
+			
+			database nDB -set sql="CREATE TABLE " + sTableMetaConfig;
+			database nDB -set sql="INSERT INTO " + sTableMetaConfig + " VALUES " + strjoin("(" + sMetaValues + ")", ", ") + ";";
+			
+			## Close the connection
+			database nDB -close;
+			return void;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	return;
+<endinstall>
+
+warn "Dies ist ein Installations-Script. Um die enthaltenen Prozeduren zu installieren, muss es mit 'install \"<this>/pkg_database\"' ausgeführt werden."
+
+
+#**Ende der Datei
+ * NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+ * https://www.numere.org/
+ **************************************************************************************************#

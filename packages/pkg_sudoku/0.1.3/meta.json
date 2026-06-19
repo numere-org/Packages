@@ -1,0 +1,12 @@
+{
+	"author": "Erik Hänel",
+	"changelog": "2025-03-28 v0.1.3:\n  c Changed code to make it runnable with v1.1.7.2504\n2022-12-30 v0.1.2:\n  + Added keywords\n  + Added changeslog",
+	"description": "This package provides procedures for working with Sudokus by providing the \"sudoku\" namespace, especially a recursive solver of a usual 9x9 Sudoku and a corresponding generator.",
+	"keywords": "Sudoku,Generator,Solver",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "Sudoku",
+	"requirements": {
+		"version": "1.1.7.2412"
+	}
+}

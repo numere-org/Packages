@@ -1,0 +1,339 @@
+#***************************************************************************************************
+ * SCRIPTNAME: plgn_batch_processing 
+ * =================================================================================================
+ * Hinzugefügt: 2025-03-28, um 14:24:01 *#
+
+##~ Füge hier deine Kommandos und Ausdrücke ein.
+<install>
+	<info>
+		-name="Batch processing"
+		-author="Erik Hänel"
+		-version="0.5.2"
+		-type=TYPE_PLUGIN_WITH_RETURN_VALUE
+		-license="Apache-2.0"
+		-desc="This plugin provides a framework for simultaneous actions on multiple files. See \"help batch\" for further details."
+		-keywords="Batch,Multi,Processing,Evaluation,Analysis,Driver"
+		-changelog="2025-03-28 v0.5.2:\n  c Changed code to make it runnable on v1.1.7.2504\n  + Modernized sections of the code\n2022-12-30 v0.5.1:\n  + Added keywords\n  + Added changeslog"
+		-flags=DISABLE_SCREEN_OUTPUT
+		-plugincommand="batch"
+		-pluginmain="$plugins~batchprocessing~batch_helper(<PARAMSTRING>)"
+		-requireversion="1.1.7.2412"
+	<endinfo>
+
+	<file name="<procpath>/plugins/batchprocessing/batch.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $batch()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-01, um 18:18:28 *#
+		
+		##! \procedure batch
+		##! Batch processing main procedure. Loads the files to memory
+		##! and runs the user-selected evaluation command
+		##!
+		##! \param _sDirectory  Search directory
+		##! \param _sFileScheme  File naming scheme, must
+		##! contain at least a single wildcard
+		##! \param _sEvalCommand  The user-selected
+		##! evaluation command as a string
+		procedure $batch(_sDirectory, _sFileScheme, _sEvalCommand) :: explicit private mask
+			var nStrings
+			cst filelist{}
+			
+			if (!_sDirectory.len())
+				throw "No searching directory was passed."
+			endif
+			
+			if (!_sFileScheme.len() || (!_sFileScheme.fnd("*") && !_sFileScheme.fnd("?")))
+				throw "The file naming scheme is missing wildcards."
+			endif
+			
+			if (_sDirectory.last != "/")
+				_sDirectory += "/";
+			endif
+			
+			if (!findfile(_sDirectory + _sFileScheme))
+				throw "No files were found at the selected search path, which ware matching to the selected naming scheme."
+			endif
+			
+			if (!_sEvalCommand.len())
+				throw "Neither an expression nor a comman was passed to the evaluation."
+			endif
+			
+			filelist{} = getfilelist(_sDirectory + _sFileScheme);
+			nStrings = cnt(filelist{});
+			hline
+			print "BATCH PROCESSOR"
+			hline
+			print #nStrings + " files were found in \"" + _sDirectory + "\", which are matching to the selected naming scheme \"" + _sFileScheme + "\":"
+			print filelist{}
+			hline
+			print "Batch evaluation is running. This won't take long ..."
+			progress 0 -set type="   <bar> (<Val> %)"
+			
+			for (fIndex = 1:nStrings)
+				load _sDirectory + filelist{fIndex} -ignore keepdim;
+				to_cmd(_sEvalCommand);
+				progress fIndex -set last=nStrings type="   <bar> (<Val> %)"
+			endfor -mask
+			
+			clear data() -ignore
+			return filelist{};
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/plugins/batchprocessing/batch_helper.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $batch_helper()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-01, um 18:18:28 *#
+		
+		##! \procedure batch\_helper
+		##! This procedure is the main entry point of this plugin and
+		##! decodes the command line parameter into single values used
+		##! by the acutal batch processing procedure.
+		##!
+		##! \param _sParams  (!!=""!!) Command line parameters. Must start with an minus sign.
+		procedure $batch_helper(_sParams = "") :: explicit
+			str sFileScheme = "", sDirectory = "", sEvalCommand = ""
+			var bUseSinFit = false, bUseMinMax = false, x_col = 1, y_col = 2
+			cst filelist{}
+			
+			if (!strlen(_sParams))
+				throw "No parameters were passed."
+			endif
+			
+			if (findparam("scheme", _sParams, "="))
+				sFileScheme = getopt(_sParams, findparam("scheme", _sParams, "=") + 7);
+			endif
+			
+			if (findparam("dir", _sParams, "="))
+				sDirectory = getopt(_sParams, findparam("dir", _sParams, "=") + 4);
+			endif
+			
+			if (findparam("command", _sParams, "="))
+				sEvalCommand = getopt(_sParams, findparam("command", _sParams, "=") + 8);
+			endif
+			
+			if (sEvalCommand.startsw("sinfit"))
+				if (sEvalCommand.startsw("sinfit("))
+					{x_col, y_col} = to_value(sEvalCommand.sub(8, sEvalCommand.fnd(")") - 8));
+					(x_col == y_col) ? y_col = y_col + 1 : 0;
+				endif
+				sEvalCommand = "$plugins~batchprocessing~sinfit(fIndex," + #x_col + "," + #y_col + ")";
+				bUseSinFit = true;
+				new sinfit() -free
+				sinfit(#, :) = {"Amplitude", "Frequency", "Phase", "Offset"};
+			endif
+			
+			if (sEvalCommand.startsw("dampedsinfit"))
+				if (sEvalCommand.startsw("dampedsinfit("))
+					{x_col, y_col} = to_value(sEvalCommand.sub(14, sEvalCommand.fnd(")") - 14));
+					(x_col == y_col) ? y_col = y_col + 1 : 0;
+				endif
+				sEvalCommand = "$plugins~batchprocessing~dampedsinfit(fIndex," + #x_col + "," + #y_col + ")";
+				bUseSinFit = true;
+				new sinfit() -free
+				sinfit(#, :) = {"Amplitude", "Time const", "Frequency", "Phase", "Offset"};
+			endif
+			
+			if (sEvalCommand == "minmax")
+				sEvalCommand = "$plugins~batchprocessing~minmax(fIndex)";
+				bUseMinMax = true;
+				new minmax() -free
+				minmax(#, :) = {"Minimum", "Maximum"};
+			endif
+			
+			filelist{} = $plugins~batchprocessing~batch(sDirectory, sFileScheme, sEvalCommand);
+			
+			if (bUseSinFit)
+				print "Batch processing successfully completed."
+				print "The data may be extracted from the \"sinfit()\" table."
+				hline
+				return filelist{};
+			endif
+			
+			if (bUseMinMax)
+				print "Batch processing successfully completed."
+				print "The data may be extracted from the \"minmax()\" table."
+				hline
+				return filelist{};
+			endif
+			
+			print "Batch processing successfully completed."
+			return filelist{};
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/plugins/batchprocessing/dampedsinfit.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $dampedsinfit()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-01, um 18:18:28 *#
+		
+		##! \procedure dampedsinfit
+		##! Prepared procedure for batchprocessing providing the a damped sine fit
+		##! functionality, which can be applied to a whole batch of loaded
+		##! files.
+		##!
+		##! \param _nFileIndex  The index of the loaded file
+		##! \param _x_col  (!!=1!!) The data column, where the x values are located
+		##! \param _y_col  (!!=2!!) The data column, where the y values are located
+		procedure $dampedsinfit(_nFileIndex, _x_col = 1, _y_col = 2) :: explicit private
+			var A = (max(data(:, _y_col)) - min(data(:, _y_col)))/2, B = 2/(max(data(:, _x_col)) - min(data(:, _x_col))), C = nan, D, E = min(data(:, _y_col)) + A, x0 = nan, x1 = nan
+			
+			if (!cnt(data(:, _y_col)))
+				throw "The column " + #_y_col + " does not contain any data."
+			endif
+			
+			if (!cnt(data(:, _x_col)))
+				throw "The column " + #_x_col + " does not contain any data."
+			endif
+			
+			{x0, C, x1} = zeroes data(:, _y_col) - E -set x=data(:, _x_col);
+			C = is_nan(x1) ? 1/(C - x0)/2 : 1/(x1 - x0);
+			C = is_nan(C) ? 1/(max(data(:, _x_col)) - min(data(:, _x_col)))/2 : C;
+			fit data(:, _x_col:_y_col) -with=A*exp(-B*x)*sin(_2pi*C*x+D) + E params=[A, B, C, D = 0, E] mask
+			sinfit(_nFileIndex, :) = {A, B, C, D, E};
+			return void
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/plugins/batchprocessing/minmax.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $minmax()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-01, um 18:18:28 *#
+		
+		##! \procedure minmax
+		##! Prepared procedure for batchprocessing providing the a min/max
+		##! functionality, which can be applied to a whole batch of loaded
+		##! files.
+		##!
+		##! \param _nFileIndex  The index of the loaded file
+		procedure $minmax(_nFileIndex) :: explicit private
+			minmax(_nFileIndex, 1) = data().min;
+			minmax(_nFileIndex, 2) = data().max;
+			return void
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/plugins/batchprocessing/sinfit.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $sinfit()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-01, um 18:18:28 *#
+		
+		##! \procedure sinfit
+		##! Prepared procedure for batchprocessing providing the a sine fit
+		##! functionality, which can be applied to a whole batch of loaded
+		##! files.
+		##!
+		##! \param _nFileIndex  The index of the loaded file
+		##! \param _x_col  (!!=1!!) The data column, where the x values are located
+		##! \param _y_col  (!!=2!!) The data column, where the y values are located
+		procedure $sinfit(_nFileIndex, _x_col = 1, _y_col = 2) :: explicit private
+			var A = (max(data(:, _y_col)) - min(data(:, _y_col)))/2, B = nan, C, D = min(data(:, _y_col)) + A, x0 = nan, x1 = nan
+			
+			if (!cnt(data(:, _y_col)))
+				throw "The column " + #_y_col + " does not contain any data."
+			endif
+			
+			if (!cnt(data(:, _x_col)))
+				throw "The column " + #_x_col + " does not contain any data."
+			endif
+			
+			{x0, B, x1} = zeroes data(:, _y_col) - D -set x=data(:, _x_col);
+			B = is_nan(x1) ? 1/(B - x0)/2 : 1/(x1 - x0);
+			B = is_nan(B) ? 1/(max(data(:, _x_col)) - min(data(:, _x_col)))/2 : B;
+			fit data(:, _x_col:_y_col) -with=A*sin(_2pi*B*x+C) + D params=[A, B, C = 0, D] mask
+			sinfit(_nFileIndex, :) = {A, B, C, D};
+			return void
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<helpfile>
+		<article id="plgn_batch_processing">
+			<title string="Batch processing" idxkey="batch" />
+			<keywords>
+				<keyword>batch</keyword>
+				<keyword>automat</keyword>
+			</keywords>
+			<contents>
+				This plugin makes it possible to automatically analyze or otherwise modify many files that are named according to a certain scheme. To do this, the corresponding files must all be located in a single folder.
+				The <code>batch</code> command must be provided with three parameters: <code>dir</code>, <code>command</code>, and <code>scheme</code>.
+				<list>
+					<item node="-dir=PATH">PATH specifies the file path to the folder where the files are located.</item>
+					<item node="-command=EXPR">This specifies the expression EXPR to be used to evaluate the files. Common expressions or even procedures (procedures should be passed in quotes in any case) can be used. The <code>batch</code> command provides one count variable <code>fIndex</code>, which contains the number of the file. This variable can be passed to the evaluation procedure so that it can be included in the evaluation. Predefined evaluation routines are also available (see below).</item>
+					<item node="-scheme=SCHEME">As SCHEME must be specified the naming scheme by which the files are named. There must be at least one <code>*</code> or one <code>?</code> in the scheme.</item>
+					</list>
+					This plugin provides the following predefined evaluation routines (For customizations, the first column is interpreted as <expr>x</expr> values and the second as <expr>y</expr> values, unless otherwise specified):
+					<list>
+						<item node="minmax">Calculates global minimum/maximum.</item>
+						<item node="sinfit">Fits a sine to the data series: <expr>a*sin(_2pi*f*x+phi)+c</expr></item>
+						<item node="sinfit(x,y)">Fits a sine to the data series, where <code>x</code> and <code>y</code> denote the corresponding <expr>x</expr> and <expr>y</expr> columns.</item>
+						<item node="dampedsinfit">Applies a damped sine to the data series: <expr>a*exp(-tau*x)*sin(_2pi*f*x+phi)+c</expr></item>
+						<item node="dampedsinfit(x,y)">Fits a damped sine to the data series, where <code>x</code> and <code>y</code> denote the corresponding <expr>x</expr> and <expr>y</expr> columns.</item>
+					</list>
+					<em>Note:</em> Files are always loaded completely (i.e., with empty columns). This should be taken into account when writing the command expression.
+					<example desc="Automatically determine the amplitude of multiple files and store the result in <code>table()</code>:">
+						batch -dir="&lt;loadpath&gt;/measurement-data" scheme="*.dat" command="table(fIndex,1) = (max(data(:,4))-min(data(:,4)))/2"
+					</example>
+				</contents>
+			</article>
+		</helpfile>
+
+		return;
+	<endinstall>
+
+	warn "Dies ist ein Installations-Script. Um die enthaltenen Prozeduren zu installieren, muss es mit 'install \"<this>/plgn_batch_processing\"' ausgeführt werden."
+
+
+#**Ende der Datei
+ * NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+ * https://www.numere.org/
+ **************************************************************************************************#

@@ -1,0 +1,114 @@
+#***************************************************************************************************
+ * SCRIPTNAME: plgn_dot 
+ * =================================================================================================
+ * Hinzugefügt: 2022-12-30, um 11:34:27 *#
+
+##~ Füge hier deine Kommandos und Ausdrücke ein.
+<install>
+	<info>
+		-name="Dot"
+		-author="Erik Hänel"
+		-version="0.0.4"
+		-flags=DISABLE_SCREEN_OUTPUT
+		-type=TYPE_PLUGIN
+		-license="Apache-2.0"
+		-desc="This plugin enables a direct call to Graphviz' \"dot.exe\" to draw directional graphs from Dot files. The common use case is to combine it with the dependency viewer, which may create such a file."
+		-keywords="Dot,GraphViz,Dependency,Graphs,Directed"
+		-changelog="2022-12-30 v0.0.4:\n  + Added keywords\n  + Added changeslog"
+		-requirepackages="pkg_file_tools"
+		-plugincommand="dot"
+		-pluginmain="$plugins~dot~main(<EXPRESSION>)"
+		-requireversion="1.1.4"
+	<endinfo>
+
+	<file name="<procpath>/plugins/dot/main.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $main()
+		* ============================================================================================
+		* Hinzugefügt: 2022-02-16, um 12:09:37 *#
+		
+		##! \procedure main
+		##! Evaluates the input and calls the 'dot.exe' application using the !!execute!! command, which
+		##! has to be enabled first.
+		##!
+		##! \param _sExpression  (!!=""!!) The expression, which shall contain the filename of the DOT file
+		procedure $main(_sExpression = "") :: explicit mask
+			## Validate input
+			if (!_sExpression.len)
+				_sExpression = dialog "<savepath>", "file.dot", "DOT file|*.dot" -set type=filedialog title="Select a file to convert to a graph";
+			endif
+			
+			## If the expression is still empty or the file cannot be
+			## located, throw an error
+			if (!_sExpression.len || !findfile(_sExpression))
+				throw "DOTPLUGIN :: No file or an invalid filename was passed."
+			endif
+			
+			## Validate the availability of the execute command
+			var nExecuteEnabled
+			nExecuteEnabled = get enableexecute -asval;
+			
+			## If the execute command is not enabled, we can do nothing
+			if (!nExecuteEnabled)
+				throw "DOTPLUGIN :: The 'execute' command is not enabled. Enable it in the options dialog first."
+			endif
+			
+			## Get the target filename and the working path
+			str sTargetFileName = _sExpression.sub(_sExpression.rmtch("\ /")+1), sWorkingPath = _sExpression.sub(1, _sExpression.rmtch("\ /")-1), sDotFilePath = $thisfile~getDotPath()
+			sTargetFileName = sTargetFileName.sub(1, sTargetFileName.rfnd(".")) + "svg";
+			
+			## Execute dot
+			execute sDotFilePath -set params=_sExpression + " -Tsvg -o "+sTargetFileName wp=sWorkingPath wait
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure getDotPath
+		##! This procedure returns the path to the GraphViz installation. It is either detected automatically
+		##! via a call to the systems environment variable or by opening up a file dialog. Once detected installations
+		##! will get saved to and read from an INI file.
+		##!
+		##! \return STR  The path, where the DOT executable is located.
+		procedure $getDotPath() :: explicit mask
+			## If the config file is available, read it from there
+			if (findfile("<this>/config.ini"))
+				return $files~ini~getValue($files~ini~read("<this>/config.ini"), "DOTEXE");
+			endif
+			
+			## Locate GraphViz on the system or ask the user to search for it
+			str sDotFilePath = $files~tools~findApp("GraphViz (dot.exe)", "Graphviz", "dot.exe");
+			
+			## Ensure that the file is valid
+			if (!sDotFilePath.len())
+				throw "DOTPLUGIN :: 'dot.exe' is not installed or not part of the system's search path. Please go to 'graphviz.org' and download and install it."
+			endif
+			
+			## Store the information in the ini file ...
+			$files~ini~write($files~ini~fromKeyVals({"DOTEXE", sDotFilePath}), "<this>/config.ini");
+			
+			## ... and return it
+			return sDotFilePath;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	return;
+<endinstall>
+
+warn "Dies ist ein Installations-Script. Um die enthaltenen Prozeduren zu installieren, muss es mit 'install \"<this>/plgn_dot\"' ausgeführt werden."
+
+
+#**Ende der Datei
+ * NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+ * https://www.numere.org/
+ **************************************************************************************************#

@@ -1,0 +1,242 @@
+#***************************************************************************************************
+ * SCRIPTNAME: pkg_flower_art 
+ * =================================================================================================
+ * Hinzugefügt: 2022-09-21, um 22:05:15 *#
+
+##~ Füge hier deine Kommandos und Ausdrücke ein.
+<install>
+	<info>
+		-name="Flower Art"
+		-author="Erik Hänel"
+		-version="0.0.1"
+		-flags=DISABLE_SCREEN_OUTPUT
+		-type=TYPE_PACKAGE
+		-license="Apache-2.0"
+		-desc="This package provides some procedures to display flowers using mathematical equations and coordinate transformations. Can be used to present NumeRes functionalities. Its other purpose is only to have some fun with maths."
+		-requirepackages="pkg_tools"
+		-requireversion="1.1.4"
+	<endinfo>
+
+	<file name="<procpath>/flowers/drawDahlia.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $drawDahlia()
+		* =================================================================================================
+		* Hinzugefügt: 2022-09-21, um 19:09:57 
+		* The math for this was found as a rose in Ned's community blog:
+		*   https://blogs.mathworks.com/community/2021/02/12/happy-valentines-day/
+		* but Ned found it at Paul Nylander's math art site:
+		*   http://www.bugman123.com/Math/index.html
+		* Updated for labeled parameters, rounded petals, new colors, and simplified some expressions. 
+		* Ported the MATLAB solution available here:
+		*   https://github.com/zappo2/digital-art-with-matlab/blob/master/flowers/dahlia.m
+		*#
+		
+		##! Declare the default parameters for this flower
+		declare fDEFAULTPARAMS := {"petals.rev", 12.6, "petals.count", 140, "petals.tilt", -1.2, "samples.petals", 10, "samples.radial", 30, "open.min", 0.11, "open.max", 1.1}
+		
+		##! \procedure drawDahlia
+		##! Draw a dahlia using mathematical expressions.
+		##!
+		##! \param _params{}  (!!={}!!) Pass parameters to change the appearance of the flower. Parameters 
+		##! are passed as a key-value list with the keys !!"petals.rev"!!, !!"petals.count"!!, 
+		##! !!"petals.tilt"!!, !!"samples.petals"!!, !!"samples.radial"!!, !!"open.min"!! and !!"open.max"!!.
+		procedure $drawDahlia(_params{} = {}) :: explicit mask
+			## Create the needed tables
+			tab radialArr(), thetaArr(), xcoord(), ycoord(), color(), dahlia()
+			
+			## Combine the passed parameters with the default ones or
+			## use the default ones completely
+			if (!num(_params{}))
+				_params{} = fDEFAULTPARAMS;
+			else
+				_params{} = $tools~structures~mergeKeyVals(fDEFAULTPARAMS, _params{});
+			endif
+			
+			## Create local variables
+			var fPetalsPerRevolution, fPetalTilt
+			
+			## Get the needed parameters for this procedure
+			{fPetalsPerRevolution, fPetalTilt} = getkeyval(_params{}, {"petals.rev", "petals.tilt"});
+			
+			## Create the petal meshgrid from the parameters and return the 
+			## azimuthal component
+			cst azimuth{} = $this~createPetalGrid(_params{}, radialArr(), thetaArr());
+			
+			## Create a matrix describing the radial transformation
+			matop dahlia() = (1 - (abs(1-(fPetalsPerRevolution*thetaArr() % _2pi)/_pi)^2)*0.7) \\
+			* (radialArr()*sin(transpose(azimuth{})) + fPetalTilt * radialArr()^2 \\
+			* (1.27689*radialArr() - 1)^2 * sin(transpose(azimuth{})) * cos(transpose(azimuth{})));
+			
+			## Calculate the coordinate transform to cartesian coordinates
+			matop xcoord() = dahlia()*sin(thetaArr());
+			matop ycoord() = dahlia()*cos(thetaArr());
+			
+			## Calculate the z component from the radial and azimuthal components
+			matop dahlia() = (1 - (abs(1-(fPetalsPerRevolution*thetaArr() % _2pi)/_pi)^2)*0.7) \\
+			* (radialArr()*cos(transpose(azimuth{})) - fPetalTilt * radialArr()^2 \\
+			* (1.27689*radialArr() - 1)^2 * sin(transpose(azimuth{})) * sin(transpose(azimuth{})));
+			
+			## Calculate the color mask as distance from the origin
+			matop color() = sqrt(xcoord()^2 + ycoord()^2 + dahlia()^2);
+			
+			## Convert the prepared matrices to datagrids
+			datagrid dahlia() -set [-1:1, -1:1] target=dahlia()
+			datagrid xcoord() -set [-1:1, -1:1] target=xcoord()
+			datagrid ycoord() -set [-1:1, -1:1] target=ycoord()
+			datagrid color() -set [-1:1, -1:1] target=color()
+			
+			## Draw the flower with nice colors
+			surf xcoord(), ycoord(), dahlia(), color() -set coords=cartesian-parametric light colorscheme="Ppw" colormask colorrange=-0.3:1.2
+			
+			return void;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/flowers/createPetalGrid.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $createPetalGrid()
+		* =================================================================================================
+		* Hinzugefügt: 2022-09-21, um 18:56:49 *#
+		
+		##! \procedure createPetalGrid
+		##! Private helper procedure to prepare a MATLAB-like meshgrid, which is then used with a parametric
+		##! coordinate set to display some flowers.
+		##!
+		##! \param _params{}  Control parameters for this procedure
+		##! \param _radialArr()&  Target table for the radial part of the meshgrid
+		##! \param _thetaArr()&  Target table for the azimuthal part of the meshgrid
+		##! \return {VAL}  Azimuthal component
+		procedure $createPetalGrid(_params{}, _radialArr()&, _thetaArr()&) :: private mask explicit
+			## Simple local function to replicate the MATLAB linspace
+			lclfunc linspace(fStart, fEnd, nSamples) := {fStart : (fEnd - fStart)/(nSamples - 1) : fEnd}
+			
+			## Create local functions and clusters
+			var fPetalsPerRevolution, nPetalCount, nPetalSamples, nRadialSamples, fMinOpenLevel, fMaxOpenLevel
+			cst azimuthalSamples{}, radialSamples{}, azimuth{}
+			
+			## Read the parameters for this procedure
+			{fPetalsPerRevolution, nPetalCount, nPetalSamples, nRadialSamples, fMinOpenLevel, fMaxOpenLevel} = \\
+			getkeyval(_params{}, {"petals.rev", "petals.count", "samples.petals", "samples.radial", "open.min", "open.max"}, \\
+			{3.6, 40, 30, 30, 0.2, 1.02});
+			
+			## Create the azimuthal and radial samples as well as the azimuthal component
+			azimuthalSamples{} = linspace(0, _2pi*nPetalCount/fPetalsPerRevolution, nPetalCount*nPetalSamples+1);
+			radialSamples{} = linspace(0, 1, nRadialSamples);
+			azimuth{} = (_pi/2)*linspace(fMinOpenLevel, fMaxOpenLevel, nPetalCount*nPetalSamples+1)^2;
+			
+			## Create the actual meshgrid in the passed two tables
+			matop _radialArr() = repmat(radialSamples{}, 1, nPetalCount*nPetalSamples+1);
+			matop _thetaArr() = repmat(transpose(azimuthalSamples{}), nRadialSamples, 1);
+			
+			## Return the azimuthal component
+			return azimuth{};
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/flowers/drawRose.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $drawRose()
+		* =================================================================================================
+		* Hinzugefügt: 2022-09-21, um 19:15:53 
+		* The math for this was found as a rose in Ned's community blog:
+		*	 https://blogs.mathworks.com/community/2021/02/12/happy-valentines-day/
+		* but Ned found it at Paul Nylander's math art site:
+		*   http://www.bugman123.com/Math/index.html
+		* Updated for labeled parameters, new colors and simplified some expressions. 
+		* Ported the MATLAB solution available here:
+		*   https://github.com/zappo2/digital-art-with-matlab/blob/master/flowers/redrose.m
+		*#
+		
+		##! Declare the default parameters for this flower
+		declare fDEFAULTPARAMS := {"petals.rev", 3.6, "petals.count", 40, "petals.tilt", 1.995653, "petals.spacing", 5/4 ,"samples.petals", 30, "samples.radial", 30, "open.min", 0.2, "open.max", 1.02}
+		
+		##! \procedure drawRose
+		##! Draw a rose using mathematical expressions.
+		##!
+		##! \param _params{}  (!!={}!!) Pass parameters to change the appearance of the flower. Parameters 
+		##! are passed as a key-value list with the keys !!"petals.rev"!!, !!"petals.count"!!, 
+		##! !!"petals.tilt"!!, !!"petals.spacing"!!, !!"samples.petals"!!, !!"samples.radial"!!, 
+		##! !!"open.min"!! and !!"open.max"!!.
+		procedure $drawRose(_params{} = {}) :: explicit mask
+			## Create the needed tables
+			tab radialArr(), thetaArr(), xcoord(), ycoord(), color(), rose()
+			
+			## Combine the passed parameters with the default ones or
+			## use the default ones completely
+			if (!num(_params{}))
+				_params{} = fDEFAULTPARAMS;
+			else
+				_params{} = $tools~structures~mergeKeyVals(fDEFAULTPARAMS, _params{});
+			endif
+			
+			## Create local variables
+			var fPetalsPerRevolution, fPetalTilt, fPetalSpacing
+			
+			## Get the needed parameters for this procedure
+			{fPetalsPerRevolution, fPetalTilt, fPetalSpacing} = getkeyval(_params{}, {"petals.rev", "petals.tilt", "petals.spacing"});
+			
+			## Create the petal meshgrid from the parameters and return the 
+			## azimuthal component
+			cst azimuth{} = $this~createPetalGrid(_params{}, radialArr(), thetaArr());
+			
+			## Create a matrix describing the radial transformation
+			matop rose() = (1 - (fPetalSpacing*(1 - (fPetalsPerRevolution*thetaArr() % _2pi)/_pi)^2 - 1/4)^2 / 2) \\
+			* (radialArr()*sin(transpose(azimuth{})) + fPetalTilt * radialArr()^2 \\
+			* (1.27689*radialArr() - 1)^2 * sin(transpose(azimuth{})) * cos(transpose(azimuth{})));
+			
+			## Calculate the coordinate transform to cartesian coordinates
+			matop xcoord() = rose()*sin(thetaArr());
+			matop ycoord() = rose()*cos(thetaArr());
+			
+			## Calculate the z component from the radial and azimuthal components
+			matop rose() = (1 - (fPetalSpacing*(1 - (fPetalsPerRevolution*thetaArr() % _2pi)/_pi)^2 - 1/4)^2 / 2) \\
+			* (radialArr()*cos(transpose(azimuth{})) - fPetalTilt * radialArr()^2 \\
+			* (1.27689*radialArr() - 1)^2 * sin(transpose(azimuth{})) * sin(transpose(azimuth{})));
+			
+			## Calculate the color mask as distance from the origin
+			matop color() = sqrt(xcoord()^2 + ycoord()^2 + rose()^2);
+			
+			## Convert the prepared matrices to datagrids
+			datagrid rose() -set [-1:1, -1:1] target=rose()
+			datagrid xcoord() -set [-1:1, -1:1] target=xcoord()
+			datagrid ycoord() -set [-1:1, -1:1] target=ycoord()
+			datagrid color() -set [-1:1, -1:1] target=color()
+			
+			## Draw the flower with nice colors
+			surf xcoord(), ycoord(), rose(), color() -set coords=parametric light colorscheme="Rrm" colormask colorrange=-0.3:1.4
+			
+			return void;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	return;
+<endinstall>
+
+warn "Dies ist ein Installations-Script. Um die enthaltenen Prozeduren zu installieren, muss es mit 'install \"<this>/pkg_flower_art\"' ausgeführt werden."
+
+
+#**Ende der Datei
+ * NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+ * https://www.numere.org/
+ **************************************************************************************************#

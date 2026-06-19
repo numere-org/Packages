@@ -1,0 +1,12 @@
+{
+	"author": "Erik Hänel",
+	"changelog": "2025-04-02 v0.1.5\n c Updated to work with v1.1.7.2504",
+	"description": "This package provides a pathfinding algorithm based upon a custom particle swarm optimizer. The convergence was optimized compared to v0.1.1 as well as the possibility to configure the algorithm using parameters as a key-value list.\n\nUpdated to be ready for the upcoming 1.1.5 change.",
+	"keywords": "",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "PSO Pathfinding",
+	"requirements": {
+		"version": "1.1.7.2412"
+	}
+}

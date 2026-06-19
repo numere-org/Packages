@@ -1,0 +1,11 @@
+{
+	"author": "Erik Hänel",
+	"description": "This package provides some procedures to display flowers using mathematical equations and coordinate transformations. Can be used to present NumeRes functionalities. Its other purpose is only to have some fun with maths.",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "Flower Art",
+	"requirements": {
+		"packages": "pkg_tools",
+		"version": "1.1.4"
+	}
+}

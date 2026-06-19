@@ -1,0 +1,1212 @@
+#***************************************************************************************************
+ * SCRIPTNAME: pkg_file_tools 
+ * =================================================================================================
+ * Hinzugefügt: 2025-10-30, um 09:02:46 *#
+
+##~ Füge hier deine Kommandos und Ausdrücke ein.
+<install>
+	<info>
+		-name="File tools"
+		-author="Erik Hänel"
+		-version="0.1.1"
+		-type=TYPE_PACKAGE
+		-license="Apache-2.0"
+		-desc="This package provides tools for some selected filetypes to simplify the interaction with these kinds of files. Currently supported are INI files, LOG files and XML files (at least reading). Additionally, some generic file-oriented tools are available.\n"
+		-keywords="Configuration,Logging,Ini,xml,Helpers,Handlers"
+		-changelog="2025-10-30 v0.1.1\n  c Resolved problems with importing and exporting of INI files\n  c Resolved a problem with the XML tools\n2025-03-28 v0.1.0\n  c Changed code to work with v1.1.7.2504\n  + Modernized some features to speed up calculation\n2024-06-06 v0.0.9\n  + Added $ini~serialize() to convert a config to a printable representation\n  + Added $ini~deserialize() to undo the serialisation\n  c Changed $ini~read() and $ini~write() correspondingly\n  + Added a check in $ini~getGroup() to ensure that the group exists\n2023-06-02 v0.0.8\n  c $tools~findApp() was modified to improve the chance of finding the searched app\n2023-02-16 v0.0.7\n  + Added more tests to $xml~getTree()\n  c Improved the behavior if selected root trees cannot be found\n2023-02-16 v0.0.6\n  + Added xml namespace with extraction functionalities\n2022-12-30 v0.0.5\n  + Added keywords\n  + Added changeslog"
+		-flags=DISABLE_SCREEN_OUTPUT
+		-requireversion="1.1.7.2508"
+	<endinfo>
+
+	<file name="<procpath>/files/ini/fromKeyVals.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $fromKeyVals()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-06, um 09:04:43 *#
+		
+		##! \procedure fromKeyVals
+		##! Converts the passed key-value list into a single configuraton file cluster.
+		##!
+		##! \param _keyValList{}  Key-value list to be converted
+		##! \return CST  The configuration file as a cluster
+		procedure $fromKeyVals(_keyValList{}) :: explicit mask inline
+			## Convert the key-value list into a single configuration file cluster
+			return #(_keyValList{{1:2:nlen}}) + "=" + #(_keyValList{{2:2:nlen}});
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/ini/getGroup.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $getGroup()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-06, um 08:46:05 *#
+		
+		##! \procedure getGroup
+		##! Returns the contents of a configuration file settings group as a new cluster.
+		##!
+		##! \param _config{}  The configuration file as a cluster
+		##! \param _sGroupName  The name of the selected group
+		##! \param _bUseDotsForGroups  (!!=true!!) Use a dot for section prefixing (if !!true!!) or a slash
+		##! \return CST  The extracted group
+		procedure $getGroup(_config{}, _sGroupName, _bUseDotsForGroups = true)
+			cst idx{}
+			
+			## Append the correct separator to the section identifier
+			_sGroupName += _bUseDotsForGroups ? "." : "/";
+			
+			## Search for the group entries
+			idx{} = locate(_config{}, _sGroupName, 2);
+			
+			## Ensure that the group exists
+			if (!idx{})
+				throw "getGroup :: The desired group \"" + _sGroupName + "\" does not exist.";
+			endif
+			
+			## Return the configuration values of the selected group
+			return strip(_config{idx{}}, _sGroupName, "");
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/ini/getGroupList.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $getGroupList()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-06, um 08:49:37 *#
+		
+		##! \procedure getGroupList
+		##! Returns a list of all groups (sections) in the passed configuration file.
+		##!
+		##! \param _config{}  A configuration file as a cluster
+		##! \param _bUseDotsForGroups  (!!=true!!) Use a dot for section prefixing (if !!true!!) or a slash
+		##! \return CST  A cluster containing the group header
+		procedure $getGroupList(_config{}, _bUseDotsForGroups = true) :: explicit mask
+			str sCurrGroup, sSeparator = _bUseDotsForGroups ? "." : "/"
+			cst glist{}
+			
+			## Try to find all possible groups in the Ini keys. Keys without a group will be returned as 
+			## empty string
+			_config{} = textparse(_config{}, "%s" + sSeparator + "%a=%a");
+			
+			## Find all unique configuration header. We cannot use the strunique() function here because 
+			## one might depend on the original order of the groups
+			for (sGroup -> _config{})
+				## Ensure that the separator is actually available
+				if (!sGroup)
+					continue;
+				endif
+				
+				## Only append the header, if it was not already
+				## detected
+				if (!locate(glist{}, sGroup))
+					glist{nlen+1} = sGroup;
+				endif
+			endfor
+			
+			## Return the identified headers
+			return glist{};
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/ini/read.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $read()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-06, um 08:21:31 *#
+		
+		##! \procedure read
+		##! Reads the specified INI file to an internal cluster. Groups (sections) in the configuration 
+		##! file are converted to prefixes in the cluster, where one may select between a full stop or
+		##! a slash.
+		##!
+		##! \param _sIniFileName  The filename of the configuration file to read
+		##! \param _bUseDotsForGroups  (!!=true!!) Use a dot for section prefixing (if !!true!!) or a slash
+		##! \return CST  The read configuration file as a cluster
+		procedure $read(_sIniFileName, _bUseDotsForGroups = true) :: explicit mask
+			cst file{}
+			
+			## Ensure that the file exists
+			if (!findfile(_sIniFileName))
+				throw "read :: The file specified as \"" + _sIniFileName + "\" does not exist."
+			endif
+			
+			## Read the file ignoring comments and find
+			## additional sections
+			file{} = read _sIniFileName -comments="#";
+			
+			## Deserialize the file into a searchable cluster
+			return $this~deserialize(file{}, _bUseDotsForGroups);
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/ini/toKeyVals.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $toKeyVals()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-06, um 09:03:21 *#
+		
+		##! \procedure toKeyVals
+		##! Converts the passed configuration into a key-value list.
+		##!
+		##! \param _config{}  Configuration to convert to a key-value list
+		##! \return CST  The configuration as key-value list
+		procedure $toKeyVals(_config{}) :: explicit mask
+			##~ Füge hier deine Kommandos und Ausdrücke ein.
+			cst keyVals{}
+			
+			## Go through the configuration list
+			for (i = 1:num(_config{}))
+				## Split the configuration at the equal sign. It will always return two strings, even if 
+				## there is no value on the right side
+				keyVals{nlen+1:} = textparse(_config{i}, "%s=%s");
+			endfor
+			
+			## Return the key-value list
+			return keyVals{};
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/ini/write.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $write()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-06, um 08:22:23 *#
+		
+		##! \procedure write
+		##! Writes a configuration cluster to the selected file and uses the prefix to create
+		##! corresponding groups in the INI file,
+		##!
+		##! \param _config{}  The configuration cluster to be written to file
+		##! \param _sIniFileName  The configuration filename
+		##! \param _bUseDotsForGroups  (!!=true!!) Use a dot for section prefixing (if !!true!!) or a slash
+		procedure $write(_config{}, _sIniFileName, _bUseDotsForGroups = true) :: explicit mask
+			## Get the serialized configuration
+			cst serialized{} = $this~serialize(_config{}, _bUseDotsForGroups);
+			
+			## Write an introductory comment
+			write "# Ini file written by NumeRe" -set file=_sIniFileName mode=trunc nq;
+			
+			## Write the serialized configuration
+			write serialized{} -set file=_sIniFileName mode=app nq;
+			
+			return void;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/logging/push.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $push()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-06, um 09:21:48 *#
+		
+		##! \procedure push
+		##! Add a message with a selected logging level and a timestamp to the selected logging 
+		##! target.
+		##!
+		##! \param _sLogFileName  The log file name. If empty, the console will be the logging target.
+		##! \param _sMessage  The actual logging message
+		##! \param _sLevel  (!!="INFO"!!) The logging criticality level. !!"ERROR"!! and !!"WARN"!!/!!"WARNING"!!
+		##! have special meaning, if the logging target is the console
+		##! \param _bErrorThrows  (!!=false!!) An !!"ERROR"!! message will throw an exception if this
+		##! is true and the current logging target is the console
+		procedure $push(_sLogFileName, _sMessage, _sLevel = "INFO", _bErrorThrows = false) :: explicit mask
+			## Prepend the current timestamp and the logging level
+			_sLevel = to_uppercase(_sLevel);
+			_sMessage = timeformat("YYYY-MM-DD HH:mm:ss", time()) + "  " + _sLevel + ": " + _sMessage;
+			
+			## Stream the message to the corresponding target
+			if (!_sLogFileName.len)
+				## Stream it to the terminal
+				if (_sLevel == "ERROR" && _bErrorThrows)
+					## If the user enabled error throwing, we'll do that here
+					throw _sMessage;
+				elseif (_sLevel == "WARNING" || _sLevel == "WARN" || (_sLevel == "ERROR" && !_bErrorThrows))
+					## Otherwise all "more critical" messages will be printed
+					## as a warning
+					warn _sMessage;
+				else
+					## Informations and debugging stuff will be printed directly
+					print _sMessage;
+				endif
+			else
+				## Stream it simply to file
+				write _sMessage -set file=_sLogFileName mode=app nq
+			endif
+			
+			return void;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/logging/read.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $read()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-06, um 09:21:30 *#
+		
+		##! \procedure read
+		##! Reads the specified log file to the passed three clusters using the logging scheme. The logging
+		##! scheme supports !!"T"!! for timestamps, !!"L"!! for logging levels and !!"M"!! for logging
+		##! messages. The number of read messages is returned by this procedure.
+		##!
+		##! \param _sLogFileName  The log file to be read
+		##! \param _timeStamps{}&  Cluster to store the timestamps into
+		##! \param _levels{}&  Cluster to store the logging levels into
+		##! \param _messages{}&  Cluster to store the log messages into
+		##! \param _sScheme  (!!="T  L: M"!!) The logging scheme of the file
+		##! \return VAL  The number of read messages
+		procedure $read(_sLogFileName, _timeStamps{}&, _levels{}&, _messages{}&, _sScheme = "T  L: M") :: explicit mask
+			cst logfile{}
+			str sIntScheme
+			
+			## Read the files contents
+			logfile{} = read _sLogFileName;
+			
+			## Extract the time stamps
+			sIntScheme = replaceall(replaceall(replaceall(_sScheme, "T", "%s"), "L", "%a"), "M", "%a");
+			_timeStamps{} = textparse(logfile{}, sIntScheme);
+			
+			## Extract the logging levels
+			sIntScheme = replaceall(replaceall(replaceall(_sScheme, "T", "%a"), "L", "%s"), "M", "%a");
+			_levels{} = textparse(logfile{}, sIntScheme);
+			
+			## Extract the logging messages
+			sIntScheme = replaceall(replaceall(replaceall(_sScheme, "T", "%a"), "L", "%a"), "M", "%s");
+			_messages{} = textparse(logfile{}, sIntScheme);
+			
+			## Return the number of read messages
+			return num(_messages{});
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/ini/tests.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $tests()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-18, um 16:20:39 *#
+		
+		##! \procedure tests
+		##! This procedure runs all tests for the INI file implementation.
+		procedure $tests() :: explicit mask
+			namespace thisfile
+			$write();
+			$read();
+			$getGroupList();
+			$getGroup();
+			$fromKeyVals();
+			$toKeyVals();
+			$setValue();
+			$getValue();
+			
+			print "files~ini: Cleaning up ..."
+			
+			if (findfile("<this>/testinifile.ini"))
+				remove "<this>/testinifile.ini" -ignore
+			endif
+			return void;
+		endprocedure
+		
+		
+		##! \procedure write
+		##! Test the writing functionality.
+		##!
+		##! \param _sFileName  (!!="<this>/testinifile.ini"!!) Target filename.
+		procedure $write(_sFileName = "<this>/testinifile.ini") :: explicit test
+			cst file{}
+			print "files~ini: Write test ..."
+			$this~write({"io.write=1", "io.read=1", "group.get=false", "group.getlist=true", "keyvals.from=abc", "keyvals.to=def"}, _sFileName);
+			assert findfile(_sFileName);
+			file{} = read _sFileName -set comments="#";
+			
+			## With groups, the file is written with the groups in alphabetical order
+			assert file{} == {"[io]", "write=1", "read=1", "[group]", "get=false", "getlist=true", "[keyvals]", "from=abc", "to=def"};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure read
+		##! Test the reading functionality.
+		##!
+		##! \param _sFileName  (!!="<this>/testinifile.ini"!!) Import filename. Must exist in advance.
+		procedure $read(_sFileName = "<this>/testinifile.ini") :: explicit test
+			cst inifile{}
+			print "files~ini: Read test ..."
+			assert findfile(_sFileName);
+			inifile{} = $this~read(_sFileName);
+			assert inifile{} == {"io.write=1", "io.read=1", "group.get=false", "group.getlist=true", "keyvals.from=abc", "keyvals.to=def"};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure getGroupList
+		##! Tests the functionality to extract the group list from the configuration file.
+		procedure $getGroupList() :: explicit test
+			cst glist{}
+			print "files~ini: Group list test ..."
+			glist{} = $this~getGroupList({"io.write=1", "io.read=1", "group.get=false", "group.getlist=true", "keyvals.from=abc", "keyvals.to=def"});
+			assert glist{} == {"io", "group", "keyvals"};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure getGroup
+		##! Test the functionality to extract the settings of a specified group.
+		procedure $getGroup() :: explicit test
+			cst keyvals{}
+			print "files~ini: Group test ..."
+			keyvals{} = $this~getGroup({"io.write=1", "io.read=1", "group.get=false", "group.getlist=true", "keyvals.from=abc", "keyvals.to=def"}, "keyvals");
+			assert keyvals{} == {"from=abc", "to=def"};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure fromKeyVals
+		##! Tests the conversion from key-value list into a configuration file.
+		procedure $fromKeyVals() :: explicit test
+			cst ini{}
+			print "files~ini: From key-value test ..."
+			ini{} = $this~fromKeyVals({"io.write", 1, "io.read", 1, "group.get", "false", "group.getlist", "true", "keyvals.from", "abc", "keyvals.to", "def"});
+			assert ini{} == {"io.write=1", "io.read=1", "group.get=false", "group.getlist=true", "keyvals.from=abc", "keyvals.to=def"};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure toKeyVals
+		##! Tests a conversion from a configuration into a key-value list.
+		procedure $toKeyVals() :: explicit test
+			cst kv{}
+			print "files~ini: To key-value test ..."
+			kv{} = $this~toKeyVals({"io.write=1", "io.read=1", "group.get=false", "group.getlist=true", "keyvals.from=abc", "keyvals.to=def"});
+			assert kv{} == {"io.write", "1", "io.read", "1", "group.get", "false", "group.getlist", "true", "keyvals.from", "abc", "keyvals.to", "def"};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure setValue
+		##! Tests the set value functionality.
+		procedure $setValue() :: explicit test
+			print "files~ini: Set value test ..."
+			cst config{} = {"io.write=1", "io.read=1", "group.get=false", "group.getlist=true", "keyvals.from=abc", "keyvals.to=def"};
+			config{} = $this~setValue(config{}, {"io.read", false});
+			assert config{2} == "io.read=false";
+			config{} = $this~setValue(config{}, {"values.set", true});
+			assert config{nlen} == "values.set=true";
+			config{} = $this~setValue(config{}, {"values.get", "mystream"});
+			assert config{nlen} == "values.get=mystream";
+			return void;
+		endprocedure
+		
+		
+		##! \procedure getValue
+		##! Tests the get Value functionality.
+		procedure $getValue() :: explicit test
+			print "files~ini: Get value test ..."
+			cst config{} = {"io.write=1", "io.read=1", "group.get=false", "group.getlist=true", "keyvals.from=abc", "keyvals.to=def"};
+			str sValue
+			sValue = $this~getValue(config{}, "io.write");
+			assert sValue == "1";
+			sValue = $this~getValue(config{}, "keyvals.from");
+			assert sValue == "abc";
+			sValue = $this~getValue(config{}, "values.set");
+			assert !sValue.len;
+			return void;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/logging/tests.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $tests()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-18, um 16:58:29 *#
+		
+		##! \procedure tests
+		##! This procedure runs all tests for the log file implementation.
+		procedure $tests() :: explicit mask
+			namespace thisfile
+			$push();
+			$read();
+			
+			print "files~logging: Cleaning up ..."
+			
+			if (findfile("<this>/testlog.log"))
+				remove "<this>/testlog.log" -ignore
+			endif
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure push
+		##! Test the pushing functionality.
+		##!
+		##! \param _sFileName  (!!="<this>/testlog.log"!!) Target filename
+		procedure $push(_sFileName = "<this>/testlog.log") :: explicit test
+			print "files~logging: Push test ..."
+			cst file{}
+			$this~push(_sFileName, "Info message");
+			assert findfile(_sFileName);
+			$this~push(_sFileName, "Debug message", "debug");
+			$this~push(_sFileName, "Warn message", "Warn");
+			$this~push(_sFileName, "Error message", "error");
+			file{} = read _sFileName;
+			assert num(file{}) == 4;
+			assert strfnd("ERROR", file{}) == {0, 0, 0, 22};
+			assert strfnd("DEBUG", file{}) == {0, 22, 0, 0};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure read
+		##! Tests the reading functionality.
+		##!
+		##! \param _sFileName  (!!="<this>/testlog.log"!!) Source filename. Must exist
+		procedure $read(_sFileName = "<this>/testlog.log") :: explicit test
+			print "files~logging: Read test ..."
+			cst times{}, msg{}, lvl{}
+			assert findfile(_sFileName);
+			assert 4 == $this~read(_sFileName, times{}, lvl{}, msg{});
+			assert msg{} == {"Info message", "Debug message", "Warn message", "Error message"};
+			assert lvl{} == {"INFO", "DEBUG", "WARN", "ERROR"};
+			return void;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/ini/getValue.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $getValue()
+		* ============================================================================================
+		* Hinzugefügt: 2022-02-17, um 18:08:44 *#
+		
+		##! \procedure getValue
+		##! Simple wrapper to read an configuration value from the loaded configuration. Can also be done
+		##! using !!getkeyval()!!. Will return an empty string, if the value does not exist.
+		##!
+		##! \param _config{}  The configuration
+		##! \param _sKey  The key to read the value from
+		##! \return STR  The value of the configuration or an empty string
+		procedure $getValue(_config{}, _sKey) :: explicit mask
+			cst kvList{} = $this~toKeyVals(_config{})
+			
+			## Return the value or an empty string
+			return #(getkeyval(kvList{}, _sKey, ""));
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/ini/setValue.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $setValue()
+		* ============================================================================================
+		* Hinzugefügt: 2022-02-17, um 18:08:57 *#
+		
+		##! \procedure setValue
+		##! Updates or adds a configuration value to the passed configuration and returns the updated
+		##! one.
+		##!
+		##! \param _config{}  The configuration
+		##! \param _keyValuePair{}  A key-value pair containing the key and the configuration value.
+		##! \return CST  The updated configuration
+		procedure $setValue(_config{}, _keyValuePair{}) :: explicit mask
+			var nKey = locate(_config{}, _keyValuePair{1} + "=", 4)
+			
+			## Write the setting to the configuration
+			if (!nKey)
+				_config{nlen+1} = _keyValuePair{1} + "=" + #(_keyValuePair{2});
+			else
+				_config{nKey} = _keyValuePair{1} + "=" + #(_keyValuePair{2});
+			endif
+			
+			## Return the configuration
+			return _config{};
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/tools/tests.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $tests()
+		* ============================================================================================
+		* Hinzugefügt: 2022-02-18, um 08:56:01 *#
+		
+		##! \procedure tests
+		##! This procedure runs all tests for the generic file tools.
+		procedure $tests() :: explicit mask
+			namespace thisfile
+			$findApp();
+			$tempFileName();
+			return void;
+		endprocedure
+		
+		
+		##! \procedure findApp
+		##! Test the application finding functionality.
+		procedure $findApp() :: explicit test
+			str sAppFilePath
+			print "files~tools: Find app test ..."
+			sAppFilePath = $this~findApp("Explorer", "Windows", "explorer.exe");
+			assert sAppFilePath.len;
+			assert findfile(sAppFilePath);
+			assert sAppFilePath.fnd("/explorer.exe");
+			return void;
+		endprocedure
+		
+		
+		##! \procedure tempFileName
+		##! Test the temporary file name functionality.
+		procedure $tempFileName() :: explicit test
+			str sTempFileName
+			print "files~tools: Temp file test ..."
+			sTempFileName = $this~tempFileName("<this>", "tempfiletest-");
+			assert !findfile(sTempFileName);
+			assert sTempFileName.fnd("tempfiletest-");
+			
+			write sTempFileName -set file=sTempFileName -nq;
+			assert findfile(sTempFileName);
+			
+			remove sTempFileName -ignore
+			
+			assert !findfile(sTempFileName);
+			return void;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/tools/findApp.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $findApp()
+		* ============================================================================================
+		* Hinzugefügt: 2022-02-17, um 17:50:34 *#
+		
+		##! \procedure findApp
+		##! Finds the path to an installed application on the users harddisk. If the application can be
+		##! found in the search path, it will be used from there. Otherwise the user is asked to locate
+		##! it using a file dialog. If the file cannot be found or the path is invalid, an empty string
+		##! is returned.
+		##!
+		##! \param _sAppName  The name of the application to identify it in the dialog
+		##! \param _sAppInstallDirectory  The usual name of the installation directory to search for
+		##! \param _sExecutableName  The actual executable name including the !!.exe!! extension
+		##! \return STR  The path to the executable or an empty string, if it cannot be found
+		procedure $findApp(_sAppName, _sAppInstallDirectory, _sExecutableName) :: mask explicit
+			## Get the environment variable PATH
+			str sAppFilePath, sEnvVar = replaceall(to_lowercase(getenvvar("PATH")), "\ ", "/");
+			cst searchPaths{}
+			_sAppInstallDirectory = replaceall(to_lowercase(_sAppInstallDirectory), "\ ", "/");
+			
+			## If the app folder can be found in the environment variable
+			## use it from there. Otherwise we'll ask the user to
+			## locate it on the system
+			if (sEnvVar.fnd(_sAppInstallDirectory))
+				searchPaths{} = strunique(sEnvVar.splt(";"));
+				searchPaths{} = searchPaths{locate(substr(searchPaths{}, 2), ":/"+_sAppInstallDirectory, 2)} + "/" + _sExecutableName;
+				sAppFilePath = searchPaths{1};
+			else
+				## Locate it in the system
+				sAppFilePath = dialog "C:/Program Files", _sExecutableName, "Executable files|*.exe" \\
+				-set type=filedialog title="Please locate '" + _sAppName + "' on your drive";
+			endif
+			
+			## Ensure that the file is valid. Otherwise return an empty
+			## string
+			if (!sAppFilePath.fnd(_sExecutableName) || !findfile(sAppFilePath))
+				return "";
+			endif
+			
+			## Return the detected file path
+			return sAppFilePath;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/tools/tempFileName.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $tempFileName()
+		* ============================================================================================
+		* Hinzugefügt: 2022-02-17, um 22:46:43 *#
+		
+		##! \procedure tempFileName
+		##! Creates a unique temporary filename with a custom prefix and a custom file extension. The file
+		##! is neither created nor opened. It is only guaranteed that the filename is unique and does not
+		##! exist at the target location (i.e. the !!_sBasePath!!). The caller of this procedure is in charge
+		##! of opening and clearing the file after it is not longer necessary.
+		##!
+		##! \param _sBasePath  The target location, where the filename shall be unique
+		##! \param _sPrefix  (!!=""!!) An optional file prefix
+		##! \param _sFileExtension  (!!="txt"!!) The file extension, which the filename shall carry
+		##! \return STR  The unique filename for the chosen target location
+		procedure $tempFileName(_sBasePath, _sPrefix = "", _sFileExtension = "txt") :: explicit mask
+			## Get the current time
+			var fTime = time(), nExt
+			str sFileName
+			
+			## Extract the microseconds (if available)
+			nExt = (fTime - floor(fTime)) * 1'M;
+			
+			## If the extension is zero, set it to a random number
+			## between 1 and 1'M
+			nExt = !nExt ? rint(rand(1, 1'M)) : nExt;
+			
+			## Create a filename candidate and ignore the additional "0x" in front of the created
+			## filename
+			sFileName = _sPrefix + substr(dectobase("hex", floor(fTime)), 3) \\
+			+ "-" + substr(dectobase("hex", nExt), 3) + "." + _sFileExtension;
+			
+			## Check for uniqueness
+			while (findfile(_sBasePath + "/" + sFileName))
+				## If not unique, increment the second part and repeat
+				nExt++;
+				sFileName = _sPrefix + substr(dectobase("hex", floor(fTime)), 3) \\
+				+ "-" + substr(dectobase("hex", nExt), 3) + "." + _sFileExtension;
+			endwhile
+			
+			## Return the unique filename to the caller
+			return _sBasePath + "/" + sFileName;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/xml/tests.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $tests()
+		* =================================================================================================
+		* Hinzugefügt: 2023-02-10, um 20:18:02 *#
+		
+		##! \procedure tests
+		##! This procedure runs all tests for the XML file implementation.
+		procedure $tests() :: explicit mask
+			namespace thisfile
+			cst tree{}
+			$prepareXML();
+			tree{} = $getTree();
+			$getAttributes(tree{});
+			$getText(tree{});
+			
+			print "files~xml: Cleaning up ..."
+			
+			if (findfile("<this>/testmap.xml"))
+				remove "<this>/testmap.xml" -ignore
+			endif
+			return void;
+		endprocedure
+		
+		
+		##! \procedure prepareXML
+		##! Create an XML file for testing
+		procedure $prepareXML()
+			write "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>\n<MapData xmlns=\"urn:numere-org:xsd.V1234.TestMap\">\n<Layouts>\n<Layout LayoutId=\"WaferMap\" DefaultUnits=\"mm\" TopLevel=\"true\">\n<Dimension X=\"1\" Y=\"1\" />\n<DeviceSize X=\"200.000000\" Y=\"200.000000\" />\n<Childs>\n<Child ChildId=\"W1\" />\n<Child />\n</Childs>\n</Layout>\n<Layout LayoutId=\"\" DefaultUnits=\"mm\">\n<Dimension X=\"13\" Y=\"15\" />\n<DeviceSize X=\"15.0000000\" Y=\"10.0000000\" Units=\"mm\" />\n<StepSize X=\"15.1500000\" Y=\"10.1500000\" Units=\"mm\" />\n</Layout>\n</Layouts>\n<Substrates>\n<Substrate SubstrateType=\"Silicon\">\n<SubstrateId>123456789</SubstrateId></Substrate>\n</Substrates>\n</MapData>" -set file="<this>/testmap.xml" nq
+		endprocedure
+		
+		
+		##! \procedure getTree
+		##! Test the tree conversion functionality
+		procedure $getTree() :: explicit test
+			cst tree{}, innerTree{}
+			print "files~xml: Get tree test ..."
+			tree{} = $this~getTree("<this>/testmap.xml");
+			assert num(tree{}) == 15;
+			assert substr(tree{}, 1, 7) == "MapData";
+			innerTree{} = $this~getTree("<this>/testmap.xml", "MapData/Substrates");
+			assert num(innerTree{}) == 3;
+			innerTree{} = $this~getTree("<this>/testmap.xml", "MapData/Substrates/");
+			assert num(innerTree{}) == 3;
+			innerTree{} = $this~getTree("<this>/testmap.xml", "MapData/Substrate");
+			assert num(innerTree{}) == 0;
+			return tree{};
+		endprocedure
+		
+		
+		##! \procedure getAttributes
+		##! Test the attribute reading functionality
+		##!
+		##! \param _tree{}  The previously read XML tree
+		procedure $getAttributes(_tree{}) :: explicit test
+			print "files~xml: Get attributes test ..."
+			cst attr{}
+			str sXmlFile
+			attr{} = $this~getAttributes("<this>/testmap.xml", _tree{1});
+			assert attr{} == {"xmlns", "urn:numere-org:xsd.V1234.TestMap"};
+			sXmlFile = $this~read("<this>/testmap.xml");
+			attr{} = $this~getAttributes("<this>/testmap.xml", _tree{3}, sXmlFile);
+			assert attr{} == {{"LayoutId", "WaferMap"}, {"DefaultUnits", "mm"}, {"TopLevel", "true"}};
+			attr{} = $this~getAttributes("<this>/testmap.xml", _tree{7}, sXmlFile);
+			assert attr{} == {"ChildId", "W1"};
+			attr{} = $this~getAttributes("<this>/testmap.xml", _tree{8});
+			assert num(attr{}) == 0;
+			attr{} = $this~getAttributes("<this>/testmap.xml", _tree{9});
+			assert attr{} == {{"LayoutId", ""}, {"DefaultUnits", "mm"}};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure getText
+		##! Test the text reading functionality
+		##!
+		##! \param _tree{}  The previously read XML tree
+		procedure $getText(_tree{}) :: explicit test
+			print "files~xml: Get text test ..."
+			str sText, sXmlFile
+			sText = $this~getText("<this>/testmap.xml", _tree{15});
+			assert sText == "123456789";
+			sXmlFile = $this~read("<this>/testmap.xml");
+			sText = $this~getText("<this>/testmap.xml", _tree{12}, sXmlFile);
+			assert sText == "";
+			return void;
+		endprocedure
+		
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/files/xml/getAttributes.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROCEDURE: $getAttributes()
+		* =================================================================================================
+		* Generated: 2023-02-09, at 15:20:09 *#
+		
+		##! \procedure getAttributes
+		##! Returns the attributes of the selected XML tag element as a key-value list. Needs a previously
+		##! created file-tree-like list from !!$getTree()!!, which contains the corresponding attribute IDs
+		##! as !!/@ID!!. 
+		##!
+		##! \param _sXmlFile  The file path to the XML file for extracting the attributes
+		##! \param _sAttributeId  The attribute ID from the XML tree. Can include the whole path
+		##! \param _sXml  (!!=""!!) Parse the already read XML file to avoid multiple re-reads of the same 
+		##! file
+		##! \return CST  The extracted attributes as a key-value list
+		procedure $getAttributes(_sXmlFile, _sAttributeId, _sXml = "") :: explicit mask
+			str sAttributeList
+			var nPos = to_value(_sAttributeId.sub(_sAttributeId.fnd("@")+1))
+			
+			if (!_sXml.len)
+				_sXml = $this~read(_sXmlFile);
+			endif
+			
+			sAttributeList = _sXml.sub(nPos+1, _sXml.fnd(">", nPos)-nPos-1);
+			
+			if (sAttributeList.last == "/")
+				sAttributeList = sAttributeList.sub(1, sAttributeList.len-1);
+			endif
+			
+			sAttributeList = strip(sAttributeList.sub(sAttributeList.fnd(" ")+1), " ", " ", true);
+			
+			if (!sAttributeList.len)
+				return {};
+			else
+				sAttributeList += " ";
+			endif
+			
+			return textparse(sAttributeList.splt(" "), "%s=\"%s\"");
+		endprocedure
+		
+		##~ Create more local procedures here
+		
+		
+		#**End of file
+		* NumeRe: Framework für Numerische Rechnungen | Free numerical software licenced under GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/xml/getText.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROCEDURE: $getText()
+		* =================================================================================================
+		* Generated: 2023-02-09, at 16:32:56 *#
+		
+		##! \procedure getText
+		##! Extract the text between an opening and the corresponding closing XML Tags. Needs the XML tree
+		##! from !!$getTree()!!, which contains the XML element IDs. If there are other tags in between the 
+		##! selected XML element, then they are returned as part of the XML text.
+		##!
+		##! \param _sXmlFile  The XML file path to extract the text from
+		##! \param _sXmlElementId  The XML element ID from the XML tree
+		##! \param _sXml  (!!=""!!) Parse the already read XML file to avoid multiple re-reads of the same 
+		##! file
+		##! \return STR  The text between the opening and the closing XML tag
+		procedure $getText(_sXmlFile, _sXmlElementId, _sXml = "") :: explicit mask
+			str sXmlTag = _sXmlElementId
+			var nPos = to_value(_sXmlElementId.sub(_sXmlElementId.mtch("@?")+1))
+			
+			if (!_sXml.len)
+				_sXml = $this~read(_sXmlFile);
+			endif
+			
+			sXmlTag = sXmlTag.sub(1, sXmlTag.rfnd("/")-1);
+			sXmlTag = sXmlTag.sub(sXmlTag.rfnd("/")+1);
+			
+			if (_sXml.fnd("/>", nPos)+1 == _sXml.fnd(">", nPos))
+				## No text in this tag because it is self-closing
+				return "";
+			endif
+			
+			nPos = _sXml.fnd(">", nPos);
+			
+			return _sXml.sub(nPos+1, _sXml.fnd("</" + sXmlTag, nPos)-nPos-1);
+		endprocedure
+		
+		##~ Create more local procedures here
+		
+		
+		#**End of file
+		* NumeRe: Framework für Numerische Rechnungen | Free numerical software licenced under GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/xml/getTree.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROCEDURE: $getTree()
+		* =================================================================================================
+		* Generated: 2023-02-09, at 14:02:06 *#
+		
+		##! \procedure getTree
+		##! Reads an XML file and converts its contents in to a file-tree-like list, where each element is 
+		##! terminated by either !!/@ID!!, if it contains attributes or !!/?ID!! otherwise. These IDs can be
+		##! used for fast querying data in the XML file. If desired, then only the part of the tree, which
+		##! is located below the selected root, can be returned (e.g. if one is only interested in a very
+		##! specific part of the tree). If the selected root tree cannot be found, an empty string is
+		##! returned.
+		##!
+		##! \param _sXmlFile  The file path to the XML file to be read
+		##! \param _sRoot  (!!=""!!) The optional root path in the XML
+		##! \return {STR}  The interpreted XML file tree
+		procedure $getTree(_sXmlFile, _sRoot = "") :: explicit mask
+			str sXml, sCurrentPath
+			cst tags{}, pos{}, tree{}
+			sXml = $this~read(_sXmlFile);
+			pos{} = strfndall("<", sXml);
+			tags{} = sXml.sub(pos{}+1, sXml.fnd(">", pos{})-pos{}-1);
+			
+			for (i = 1:num(tags{}))
+				if (char(tags{i}, 1) != "/" && char(tags{i}, strlen(tags{i})) != "/")
+					## Does not stop or end a previous tag
+					sCurrentPath += substr(tags{i}, 1, strfnd(" ", tags{i})-1) + "/";
+					if (strfnd(" ", tags{i}))
+						tree{nlen+1} = sCurrentPath + "@" + #pos{i};
+					else
+						tree{nlen+1} = sCurrentPath + "?" + #pos{i};
+					endif
+				elseif (char(tags{i}, strlen(tags{i})) == "/")
+					tree{nlen+1} = sCurrentPath + substr(tags{i}, 1, strfnd(" ", tags{i})-1) + "/@" + #pos{i};
+				elseif (char(tags{i}, 1) == "/")
+					sCurrentPath = sCurrentPath.sub(1, sCurrentPath.rfnd(tags{i}));
+				endif
+			endfor
+			
+			## Did the user request for a special part of the tree?
+			if (_sRoot.len)
+				## Ensure that the root path ends with a slash
+				if (_sRoot.at(_sRoot.len) != "/")
+					_sRoot += "/";
+				endif
+				
+				## Find all occurences of the tree
+				pos{} = locate(tree{}, _sRoot, 2);
+				
+				## Ensure that something had been found. Otherwise simply return an empty string
+				if (!pos{})
+					return "";
+				endif
+				
+				## Restrict to the selected part of the tree
+				tree{} = tree{pos{}};
+				tree{} = "../" + substr(tree{}, _sRoot.len+1);
+			endif
+			
+			return tree{};
+		endprocedure
+		
+		##~ Create more local procedures here
+		
+		
+		#**End of file
+		* NumeRe: Framework für Numerische Rechnungen | Free numerical software licenced under GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/xml/read.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROCEDURE: $read()
+		* =================================================================================================
+		* Generated: 2023-02-09, at 14:02:53 *#
+		
+		##! \procedure read
+		##! Reads an XML file and concatenates the individual lines into a single string.
+		##!
+		##! \param _sXmlFile  File name to be read
+		##! \return STR  The read XML file as a single string
+		procedure $read(_sXmlFile) :: explicit mask
+			cst xml{}
+			
+			## Ensure that the file is available
+			if (!findfile(_sXmlFile))
+				throw "read :: File \"" + _sXmlFile + "\" could not be found or does not exist."
+			endif
+			
+			## Read the file and ignore eventual comments
+			xml{} = read _sXmlFile -comments={"<?", "<!--", "-->"};
+			
+			## Return the concatenated string
+			return sum(xml{});
+		endprocedure
+		
+		##~ Create more local procedures here
+		
+		
+		#**End of file
+		* NumeRe: Framework für Numerische Rechnungen | Free numerical software licenced under GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/files/ini/deserialize.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $deserialize()
+		* =================================================================================================
+		* Hinzugefügt: 2023-09-28, um 15:37:31 *#
+		
+		##! \procedure deserialize
+		##! Deserializes the passed INI data to an internal cluster. Groups (sections) in the configuration 
+		##! data are converted to prefixes in the cluster, where one may select between a full stop or
+		##! a slash.
+		##!
+		##! \param _iniData{}  The cluster containing the ini data to be deserialized
+		##! \param _bUseDotsForGroups  (!!=true!!) Use a dot for section prefixing (if !!true!!) or a slash
+		##! \return {STR}  The read configuration data as a cluster
+		procedure $deserialize(_iniData{}, _bUseDotsForGroups = true) :: explicit mask
+			cst config{}, groups{}, headers{}
+			str sSeparator = _bUseDotsForGroups ? "." : "/"
+			groups{} = startswith(_iniData{}, "[") && endswith(_iniData{}, "]");
+			
+			## If no sections were found, return the data directly
+			if (!or(groups{}))
+				return _iniData{};
+			endif
+			
+			## Convert the section logicals to indices and extract the headers
+			groups{} = logtoidx(groups{});
+			headers{} = strip(_iniData{groups{}}, "[", "]");
+			
+			## Prepend the sections to the configuration value identifiers
+			for (i = 1:num(groups{})-1, num(groups{}) > 1)
+				config{nlen+1:} = headers{i} + sSeparator + _iniData{groups{i}+1:groups{i+1}-1};
+			endfor
+			
+			## The last section is kind of special
+			config{nlen+1:} = headers{nlen} + sSeparator + _iniData{groups{nlen}+1:nlen};
+			
+			## Return the final configuration cluster
+			return config{};
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/files/ini/serialize.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $serialize()
+		* =================================================================================================
+		* Hinzugefügt: 2023-10-01, um 08:24:37 *#
+		
+		##! \procedure serialize
+		##! Serializes the passed configuation to an string array ready for writing to a file. Groups in the
+		##! configuration data are converted to sections in the string array, where one may select between a
+		##! full stop or a slash.
+		##!
+		##! \param _config{}  The configuration cluster to be serialized
+		##! \param _bUseDotsForGroups  (!!=true!!) Use a dot for section prefixing (if !!true!!) or a slash
+		##! \return {STR}  The serialized configuration
+		procedure $serialize(_config{}, _bUseDotsForGroups = true) :: explicit mask
+			cst groups{}, serialized{}
+			
+			## Get the groups in the file
+			groups{} = $this~getGroupList(_config{}, _bUseDotsForGroups);
+			
+			## Are any groups present in the configuration cluster?
+			if (!num(groups{}))
+				## No? Then simply return the whole configuration directly
+				return _config{};
+			else
+				## Separate the groups
+				for (sGroup -> groups{})
+					## Add the group header
+					serialized{nlen+1} = "[" + sGroup + "]";
+					
+					## Add the group's contents
+					serialized{nlen+1:} = $this~getGroup(_config{}, sGroup, _bUseDotsForGroups);
+				endfor
+			endif
+			
+			## Return the serialized array
+			return serialized{};
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	return;
+<endinstall>
+
+warn "Dies ist ein Installations-Script. Um die enthaltenen Prozeduren zu installieren, muss es mit 'install \"<this>/pkg_file_tools\"' ausgeführt werden."
+
+
+#**Ende der Datei
+ * NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+ * https://www.numere.org/
+ **************************************************************************************************#

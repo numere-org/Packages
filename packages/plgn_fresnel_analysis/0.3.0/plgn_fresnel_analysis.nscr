@@ -1,0 +1,222 @@
+#***************************************************************************************************
+ * SCRIPTNAME: plgn_fresnel_analysis 
+ * =================================================================================================
+ * Hinzugefügt: 2025-03-28, um 15:00:30 *#
+
+##~ Füge hier deine Kommandos und Ausdrücke ein.
+<install>
+	<info>
+		-name="Fresnel analysis"
+		-author="Erik Hänel"
+		-version="0.3.0"
+		-type=TYPE_PLUGIN
+		-license="GPL-3.0-or-later"
+		-desc="This plugin provides the Fresnel analysis for calculating the Brewster angle from measurements from datasets. Further information may be found at \"help fresnel\""
+		-keywords="Fresnel,Brewster angle,fitting"
+		-changelog="2025-03-28 v0.3.0:\n  c Changed code to make it runnable under v1.1.7.2504\n  + Modernized parts of the solution.\n2022-12-29 v0.2.9:\n  + Added historic changes log\n  + Added keywords\n2017-05-06 v0.2.6:\n  c Plugin für die Versionsreihe v1.1.x angepasst\n  - $showPlot() entfernt \n2016-10-08 v0.2.5: release als v0.2.5\n  c Neue Funktion von \"findfile()\" eingebaut und Suchpfad auf \"<loadpath>\" festgelegt\n2016-09-04 v0.2.4:\n  c \"tools\" in package ausgelagert\n2016-05-23 v0.2.3: release als v0.2.3\n2016-04-08 v0.2.1:\n  + chi^2-Map-Ergebnisse tragen nun den Titel \"chi^2\".\n  + Im Plot der Fitanalyse wird der angepasste Brechungsindex in der Legende für die Fitfunktion angezeigt.\n2016-04-07 v0.2.0:\n  c Spaltenplausibilitätsprüfung verschoben.\n  + Plotparam-Reset zur chimap-Funktion hinzugefügt\n2016-04-01 v0.1.9:\n  c Fehlermeldungen aktualisiert und erweitert.\n2016-03-31 v0.1.8:\n  - unnötige doppelte Namespaces entfernt\n2016-03-30 v0.1.7:\n  + comments\n  + \"chimap\" zum Hilfeintrag hinzugefügt\n  c \"chimap()\" durch \"plgn_fresnel_chimap()\" ausgetauscht\n  + Speicher aufräumen nach chimap\n2016-03-28 v0.1.6:\n  + chi^2-Map über den Parameter \"chimap\" eingefügt\n  + Intervallbereiche der chi^2-Map werden nun auch abgefragt\n  + Sicherheitsprüfung, dass zumindest der erste Parameter der chi^2-Map auch existiert\n  c im 1D-Chimap-Fall wird nur ein \"plot\" aufgerufen, keine \"dens\"-Map mehr\n2016-03-20 v0.1.5:\n  + globale Prozedur zum Entfernen von führenden und angehängten Leerzeichen hinzugefügt\n  c Dateinamen im Ergebnis werden nun mit Pfad angezeigt\n  + Prozedur für eine chi^2-Map hinzugefügt (muss noch integriert werden)\n2016-03-18 v0.1.4:\n  + globale Prozedur zum Extrahieren von Tabellenparametern hinzugefügt\n  c manuelles Parameterlesen mit globaler Prozedur gelöst\n2016-03-16 v0.1.3: \n  + Parameterprüfung\n  + comments\n  + \"$showPlot\" ist nun \"private\"\n  + Ergebnistabelle zeigt Datei/-Tabellennamen an\n2016-03-15 v0.1.2: First release as v0.1.2"
+		-flags=DISABLE_SCREEN_OUTPUT
+		-requirepackages="pkg_tools"
+		-plugincommand="fresnel"
+		-pluginmain="$plugins~fresnel~main(<EXPRSTRING>,<PARAMSTRING>)"
+		-requireversion="1.1.7.2412"
+	<endinfo>
+
+	<file name="<procpath>/plugins/fresnel/main.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $main()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-01, um 15:09:39 *#
+		
+		procedure $main(_sExpression = "", _sParamstring = "") :: explicit
+			str sFilename = _sExpression, sTemp = "", sTablename = "", sCol1 = "scale", sCol2 = "chi^2"
+			var nDegrees = 1, nIntensities = 2, fXmin = 0, fXmax = 0, nIterations = 0, nStartRow = 1, nEndRow = inf
+			tab plgn_fresnel()
+			namespace this
+			
+			if (!sFilename.len())
+				throw "Kein Datei- oder Tabellenname für die Fresnelanalyse angegeben.\nSiehe auch \"help fresnel\" für weitere Informationen."
+			endif
+			
+			if (!is_data(sFilename) && !findfile(sFilename, "<loadpath>"))
+				throw "Die Datei oder die Tabelle \"" + sFilename + "\" konnte nicht gefunden werden bzw. existiert nicht.\nBitte überprüfe, ob die zu analysierenden Daten auch vorhanden sind."
+			endif
+			
+			ifndefined fit_fresnel(x, scale, inverse_refr_index, offset) := scale*(tan(x - arcsin(inverse_refr_index*sin(x)))^2)/(tan(x + arcsin(inverse_refr_index*sin(x)))^2) + offset
+			
+			if (!is_data(sFilename))
+				load sFilename -ignore;
+				sFilename = data(#, #);
+				if (!findparam("cols", _sParamstring, "="))
+					show data()
+					print "Die Gradwerte und Intensitäten werden benötigt. Gebe bitte die Spaltennummern an."
+					nDegrees = readline -msg="Gradwerte: ";
+					nIntensities = readline -msg="Intensitäten: ";
+				else
+					{nDegrees, nIntensities} = to_value(getopt(_sParamstring, findparam("cols", _sParamstring, "=")+5));
+				endif
+				if (nDegrees <= 0 || nIntensities <= 0 || nDegrees == nIntensities)
+					throw "Die Spaltennummern wurden nicht sinnvoll angegeben. (Entweder sie sind kleiner-gleich 0 oder identisch.)"
+				endif
+				plgn_fresnel(:, 1) = data(:, nDegrees);
+				plgn_fresnel(:, 2) = data(:, nIntensities);
+			else
+				{sTablename, nStartRow, nEndRow, nDegrees, nIntensities} = $tools~extractTableParams(sFilename, 1);
+				plgn_fresnel(:, 1) = to_value(sTablename + "(" + #nStartRow + ":" + #nEndRow + "," + #nDegrees + ")");
+				plgn_fresnel(:, 2) = to_value(sTablename + "(" + #nStartRow + ":" + #nEndRow + "," + #nIntensities + ")");
+			endif
+			
+			if (findparam("chimap", _sParamstring))
+				if (findparam("chimap", _sParamstring, "="))
+					{sCol1, sCol2} = to_value(getopt(_sParamstring, findparam("chimap", _sParamstring, "=") + 7));
+					if (!sCol2.len())
+						sCol2 = "chi^2";
+					endif
+					$chimap(plgn_fresnel(), sCol1, sCol2);
+				else
+					$chimap(plgn_fresnel());
+				endif
+				plot -set reset
+				return void
+			endif
+			
+			fXmin = min(plgn_fresnel(:, 1)), fXmax = max(plgn_fresnel(:, 1));
+			offset = min(plgn_fresnel(:, 2)), scale = 10*(max(plgn_fresnel(:, 2)) - offset), inverse_refr_index = 0.7;
+			plot plgn_fresnel(:, 1:2) "Messwerte" -set reset xlabel="Winkel [rad]" ylabel="Intensität [V]" box xscale=180/_pi silent opng="fresnel"
+			view "<plotpath>/fresnel.png"
+			print "Sieh dir den generierten Plot der Datenpunkte an und wähle sinnvolle Startwerte. Der Skalierungsfaktor \"scale\" sollte eher groß gewählt werden, für den inversen Brechungsindex \"inverse_refr_index\" bieten sich Zahlen um 0.7 (etwa 1/1.4) an und der Offset entspricht etwa dem Minimum der Messwerte."
+			print "Es wurden bereits sinnvolle Startwerte geschätzt."
+			
+			while (true)
+				scale = ??[scale];
+				inverse_refr_index = ??[inverse_refr_index];
+				offset = ??[offset];
+				nIterations++;
+				scale = !scale ? abs(10*(max(plgn_fresnel(:, 2)) - offset)) : abs(scale);
+				inverse_refr_index = !inverse_refr_index ? 0.7 : abs(inverse_refr_index);
+				fit plgn_fresnel(:, 1:2) -with=fit_fresnel(radian(x), scale, inverse_refr_index, offset) [fXmin:fXmax] tol=1e-9
+				plot plgn_fresnel(:, 1:2) "Messwerte", fit_fresnel(radian(x), scale, inverse_refr_index, offset) "n = " + #round(1/inverse_refr_index, 4) -set xscale=180/_pi xlabel="Winkel [rad]" ylabel="Intensität [V]" opng="fresnel" silent
+				view "<plotpath>/fresnel.png"
+				sTemp = readline -asstr -msg="Diesen Fit mit neuen Parametern wiederholen? (j/n) ";
+				
+				if (sTemp.at(1) == "n")
+					plot -set reset
+					break
+				else
+					print "Gebe nun neue Startwerte an. Die angepassten Parameter werden als Defaultwerte verwendet."
+				endif
+			endwhile -mask
+			
+			hline
+			
+			if (sTablename.len())
+				print to_uppercase("Fitergebnisse der Fresnelanalyse von " + sTablename + "()")
+			else
+				print to_uppercase("Fitergebnisse der Fresnelanalyse von " + sFilename)
+			endif
+			
+			hline
+			print "scale                = " + valtostr(scale, " ", 13) + " [V]"
+			print "inverse_refr_index   = " + valtostr(inverse_refr_index, " ", 13)
+			print "refr_index           = " + valtostr(1/inverse_refr_index, " ", 13)
+			print "offset               = " + valtostr(offset, " ", 13) + " [V]"
+			print "chi^2                = " + valtostr(chi^2, " ", 13)
+			print "Iterationen:           " + valtostr(nIterations, " ", 13)
+			hline
+			plot -set reset
+			return void
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/plugins/fresnel/chimap.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $chimap()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-01, um 15:09:39 *#
+		
+		procedure $chimap(_plgn_fresnel(), _sCol1 = "scale", _sCol2 = "inverse_refr_index") :: explicit private
+			var nCol1Start = 0, nCol1End = 300, nCol2Start = 0.5, nCol2End = 1
+			tab plgn_fresnel_chimap()
+			
+			if (to_string(_sCol1) != "scale" && to_string(_sCol1) != "inverse_refr_index" && to_string(_sCol1) != "offset")
+				throw to_string(_sCol1) + " ist kein vorhandener Parameter in der Anpassung."
+			endif
+			
+			if (to_string(_sCol1) != "scale" || to_string(_sCol2) != "inverse_refr_index")
+				print "Gib für die chi^2-Map bitte die Intervalle der fest zu variierenden Parameter ein:"
+				nCol1Start = readline -msg="Untere Grenze " + _sCol1;
+				nCol1End = readline -msg="Obere Grenze " + _sCol1;
+				if (to_string(_sCol2) != "chi^2")
+					nCol2Start = readline -msg="Untere Grenze " + _sCol2;
+					nCol2End = readline -msg="Obere Grenze " + _sCol2;
+				endif
+			endif
+			
+			datagrid 0 -set [nCol1Start:nCol1End, nCol2Start:nCol2End] target=plgn_fresnel_chimap()
+			plgn_fresnel_chimap(#, :) = {_sCol1, _sCol2};
+			print "chi^2-Map wird berechnet. Einen Moment..."
+			fit _plgn_fresnel() -with=fit_fresnel(radian(x), scale, inverse_refr_index, offset) chimap=plgn_fresnel_chimap()
+			print "Berechnung abgeschlossen. Map wird generiert..."
+			
+			if (plgn_fresnel_chimap(#, 2) != "scale" && plgn_fresnel_chimap(#, 2) != "inverse_refr_index" && plgn_fresnel_chimap(#, 2) != "offset")
+				plot plgn_fresnel_chimap() -set xlabel=plgn_fresnel_chimap(#, 1) ylabel="\chi^2" box ylog silent opng="fresnel_chimap" reset title="\chi^2"
+			else
+				dens plgn_fresnel_chimap() -set xlabel=plgn_fresnel_chimap(#, 1) ylabel=plgn_fresnel_chimap(#, 2) box pcont fcont zlog clog silent opng="fresnel_chimap" reset title="\chi^2"
+			endif
+			
+			view "<plotpath>/fresnel_chimap.png"
+			print "Generierung der chi^2-Map erfolgreich abgeschlossen."
+			return void
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+	<endfile>
+
+	<helpfile>
+		<article id="plgn_fresnel">
+			<title string="Fresnelanalyse" idxkey="fresnel" />
+			<keywords>	
+				<keyword>fresn</keyword>
+				<keyword>brewst</keyword>
+			</keywords>
+			<contents>
+				Mit dem Fresnel-Plugin kann die Fitanalyse der Brewsterwinkel-Messung schnell und kompakt durchgeführt werden. Dazu ist es lediglich notwendig, dem Kommando <code>fresnel</code> den Dateinamen des Datensatzes zu übergeben:
+				<codeblock>
+					fresnel DATEINAME
+				</codeblock>
+				Das Plugin wird automatisch nach den entsprechenden Spalten fragen, in denen sich die Gradwerte der Messung bzw. die zugehörigen Intensitäten befinden. Falls diese jedoch im Voraus bekannt sind, können sie auch direkt angegeben werden:
+				<codeblock>
+					fresnel DATEINAME -set cols={GRAD,INTENS}
+				</codeblock>
+				Zusätzlich ist es auch möglich, bereits geladene Datenreihen zu verwenden:
+				<codeblock>
+					fresnel DATEN(i1:i2,j1:j2)
+				</codeblock>
+				Sollte der ausgeführte Fit nicht mit den vorgegebenen Parameterwerten konvergieren, besteht direkt die Möglichkeit, den Fit mit neuen Werten zu wiederholen.
+				Wenn die Option <code>chimap</code> bzw. <code>chimap={param1,param2}</code> übergeben wird, so wird NumeRe eine <expr>chi^2</expr>-Map der Parameter <code>scale</code> und <code>inverse_refr_index</code> bzw. der vorgegebenen Parameter <code>param1,param2</code> berechnen. Eine <expr>chi^2</expr>-Map benötigt selbstverständlich deutlich länger als eine gewöhnliche Anpassung.
+				<example desc="Fresnelanalyse eines Datenfiles mit vorgegebenen Spaltennummern:">
+					fresnel Versuch.txt -set cols={2,3}
+				</example>
+			</contents>
+		</article>
+	</helpfile>
+
+	return;
+<endinstall>
+
+warn "Dies ist ein Installations-Script. Um die enthaltenen Prozeduren zu installieren, muss es mit 'install \"<this>/plgn_fresnel_analysis\"' ausgeführt werden."
+
+
+#**Ende der Datei
+ * NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+ * https://www.numere.org/
+ **************************************************************************************************#

@@ -1,0 +1,13 @@
+{
+	"author": "Erik Hänel",
+	"changelog": "2025-03-28 v0.0.4:\n  c Changed code to run with v1.1.7.2504\n2023-08-15 v0.0.3:\n  c NDB files are now stored in UTF8 encoding\n2023-02-01 v0.0.2:\n  + Added possibility to store a configuration\n  + Improved code quality\n2023-03-01 v0.0.1:\n  + Created package from solution",
+	"description": "This package provides support for interaction with NDB (NumeRe database) files via procedures and a central GUI.",
+	"keywords": "ndb,database",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "NDB Tools",
+	"requirements": {
+		"packages": "pkg_file_tools",
+		"version": "1.1.7.2412"
+	}
+}

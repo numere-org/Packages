@@ -1,0 +1,12 @@
+{
+	"author": "Erik Hänel",
+	"changelog": "2022-12-30 v0.0.2:\n  + Added keywords\n  + Added changeslog\n2022-05-15 v0.0.1: Initial release",
+	"description": "This package provides a set of optimisation algorithms usable for different scenarios. The initial release is quite basic. Further algorithms have to be created.",
+	"keywords": "Astar,Particle Swarm Optimizer,Route Optimisation,Route Planning",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "Optimisation",
+	"requirements": {
+		"version": "1.1.4"
+	}
+}

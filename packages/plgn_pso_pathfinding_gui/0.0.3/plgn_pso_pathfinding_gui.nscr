@@ -1,0 +1,353 @@
+#**********************************************************************************************
+ * SCRIPTNAME: plgn_pso_pathfinding_gui 
+ * ============================================================================================
+ * Hinzugefügt: 2021-10-19, um 17:02:27 *#
+
+##~ Füge hier deine Kommandos und Ausdrücke ein.
+<install>
+	<info>
+		-name="PSO Pathfinding GUI"
+		-author="Erik Hänel"
+		-version="0.0.3"
+		-flags=DISABLE_SCREEN_OUTPUT
+		-type=TYPE_GUI_PLUGIN
+		-license="Apache-2.0"
+		-desc="A GUI for the PSO Pathfinding package. NOTE: This plugin needs the current development version of NumeRe v1.1.4"
+		-requirepackages="pkg_tools,pkg_pso_pathfinding"
+		-pluginmenuentry="PSO Pathfinding"
+		-pluginmain="$pso~openGui()"
+		-requireversion="1.1.3"
+	<endinfo>
+
+	<file name="<procpath>/pso/openGui.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $openGui()
+		* ============================================================================================
+		* Hinzugefügt: 2021-10-15, um 13:18:54 *#
+		
+		##! \procedure openGui
+		##! Simple wrapper to open up the GUI from the menu.
+		procedure $openGui()
+			window <this>/pso_gui;
+			return void;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/pso/pso_gui.nlyt">
+		#**********************************************************************************************
+		* WINDOW-LAYOUT: pso_gui 
+		* ============================================================================================
+		* Hinzugefügt: 2021-10-08, um 12:49:37 *#
+		
+		##! \layout pso_gui
+		##! The different GUI element IDs for this layout
+		## The button IDs
+		declare nSELECT_HEIGHT := 1, nSELECT_MOBILITY := 2, nSELECT_POINTS := 3, nDRAW_MAP := 4, nRUN := 5, nSMOOTH_MOBILITY := 6
+		
+		## The initial parameter IDs
+		declare INITIAL_RAND := 10, INITIAL_ANGLE := 11, INITIAL_PATHS := 12
+		
+		## The iteration parameter IDs
+		declare ITERATION_RAND := 20, ITERATION_COUNT := 22, ITERATION_V_OFFSET := 21, ITERATION_SHOWPATHS := 23, ITERATION_SHOWONLYBEST := 24
+		
+		## The weighting parameter IDs
+		declare HEIGHTSCALE := 32, JUMP_MAX := 30, JUMP_PENALITY := 31, CONTRIB_ENERGY := 33, CONTRIB_VELOCITY := 34
+		
+		## The actual layout
+		layout -title="PSO Pathfinding" size={840,740}
+			prop sHeightMapName = "", sMobilityMapName = ""
+			
+			## Create the main horizontal group
+			group -type=horizontal
+				## Create a vertical group for the buttons
+				group -label="Controls" type=vertical
+					group -type=horizontal
+						button "Select height map" -set onclick=$this~guiEvent() id=nSELECT_HEIGHT
+					endgroup
+					group -type=horizontal
+						button "Select mobility map" -set onclick=$this~guiEvent() id=nSELECT_MOBILITY
+					endgroup
+					group -type=horizontal
+						button "Modify mobility map" -set state=disabled onclick=$this~guiEvent() id=nDRAW_MAP
+					endgroup
+					group -type=horizontal
+						button "Smooth mobility map" -set state=disabled onclick=$this~guiEvent() id=nSMOOTH_MOBILITY
+					endgroup
+					group -type=horizontal
+						button "Select route" -set state=disabled onclick=$this~guiEvent() id=nSELECT_POINTS
+					endgroup
+					group -type=horizontal
+						button "Run" -set state=disabled onclick=$this~guiEvent() id=nRUN
+					endgroup
+				endgroup
+				
+				## Create tabbed groups for the different parameters
+				## 1.: The initial parameters
+				group -label="Initial params" type=vertical style=tabs
+					textfield "0.05" -set label="Initial velocity randomisation" id=INITIAL_RAND ## initial.rand
+					statictext "Definition of the diamond-shaped initial path trajectories:"
+					spinbut -set min=0 max=75 value=45 label="Opening half-angle" id=INITIAL_ANGLE ## initial.angle
+					spinbut -set min=3 max=150 value=80 label="Paths per half-angle" id=INITIAL_PATHS ## initial.paths
+				endgroup
+				
+				## 2.: The iteration paramters
+				group -label="Iteration params" type=vertical style=tabs
+					textfield "2" -set label="Velocity randomisation" id=ITERATION_RAND ## iteration.rand
+					textfield "0.5" -set label="Velocity offset" id=ITERATION_V_OFFSET ## iteration.v_offset
+					spinbut -set min=10 max=150 value=80 label="Number of iterations" id=ITERATION_COUNT ## iteration.count
+					checkbox "Show intermediate paths for debugging purposes" -set value=false id=ITERATION_SHOWPATHS onchange=$this~guiEvent() ## iteration.showpaths
+					checkbox "Show only best path" -set value=false state=disabled id=ITERATION_SHOWONLYBEST ## iteration.showonlybest
+				endgroup
+				
+				## 3.: The weighting parameters
+				group -label="Path weighting params" type=vertical style=tabs
+					spinbut -set min=0 max=20 value=4 label="Maximal length of allowed grid jumps" id=JUMP_MAX ## jump.max
+					textfield "100" -set label="Jumping penality factor" id=JUMP_PENALITY ## jump.penality
+					textfield "4" -set label="Height scaling factor" id=HEIGHTSCALE ## heightscale
+					textfield "100" -set label="Energy contribution factor" id=CONTRIB_ENERGY ## contrib.energy
+					textfield "400" -set label="Velocity contribution factor" id=CONTRIB_VELOCITY ## contrib.velocity
+				endgroup
+			endgroup
+			
+			## Create a progress bar for presenting the progress to the user
+			gauge -set type=horizontal id=0
+			
+			## Create the two graphers for the height and mobility maps
+			group -type=horizontal
+				grapher -set size={400,400} id=100
+				grapher -set size={400,400} id=101
+			endgroup
+			
+		endlayout
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/pso/guiEvent.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $guiEvent()
+		* ============================================================================================
+		* Hinzugefügt: 2021-10-08, um 13:34:49 *#
+		
+		##! The button IDs as used in the corresponding GUI layout
+		declare nSELECT_HEIGHT := 1, nSELECT_MOBILITY := 2, nSELECT_POINTS := 3, nDRAW_MAP := 4, nRUN := 5, nSMOOTH_MOBILITY := 6, ITERATION_SHOWPATHS := 23, ITERATION_SHOWONLYBEST := 24
+		
+		##! \procedure guiEvent
+		##! This procedure is the event handler for the !!pso_gui.nlyt!! file.
+		##!
+		##! \param _nWinId  The current's window ID
+		##! \param _nItemId  The firing item's ID
+		##! \param _event{}  The event information
+		procedure $guiEvent(_nWinId, _nItemId, _event{}) :: explicit event
+			str sMapName
+			tab heightMap(), mobilityMap()
+			cst psoparams{}
+			
+			## Handle the button events by their IDs
+			switch (_nItemId)
+			case nSELECT_HEIGHT:
+				## Load the height map
+				sMapName = $thisfile~loadMap(true);
+				
+				## Enable the corresponding buttons
+				if (sMapName.len)
+					window _nWinId -set prop=sHeightMapName value=sMapName;
+					window _nWinId -set state=enabled item=nSELECT_POINTS;
+					dens _~heightMap() -set reset box streamto={_nWinId,100} aspect=1
+				endif
+				
+				break;
+			case nSELECT_MOBILITY:
+				## Load the mobility map
+				sMapName = $thisfile~loadMap(false);
+				
+				## Enable the corresponding buttons
+				if (sMapName.len)
+					window _nWinId -set prop=sMobilityMapName value=sMapName;
+					window _nWinId -set state=enabled item=nDRAW_MAP;
+					window _nWinId -set state=enabled item=nSMOOTH_MOBILITY;
+					dens _~mobilityMap() -set reset box streamto={_nWinId, 101} aspect=1
+				endif
+				
+				break;
+			case nSELECT_POINTS:
+				new _~selectedPoints() -free
+				## Open the grid locator 
+				$tools~gui~openGridLocator(_~heightMap(), _~selectedPoints(), 2);
+				
+				## Enable the Run button
+				window _nWinId -set state=enabled item=nRUN;
+				break;
+			case nDRAW_MAP:
+				## Open the map painter
+				$tools~gui~openGridPainter(_~mobilityMap());
+				break;
+			case nSMOOTH_MOBILITY:
+				## Smooth the mobility map and update the displayed image
+				smooth _~mobilityMap(:,3:) -order=2
+				dens _~mobilityMap() -set reset box streamto={_nWinId, 101} aspect=1
+				break;
+			case nRUN:
+				## If enough points are selected, run the algorithm
+				if (num(_~selectedPoints(:,1)) >= 2)
+					window _nWinId -set value=0 item=0;
+					
+					## Disable the Run button while calculatuing
+					window _nWinId -set state=disabled item=nRUN;
+					
+					## Get references to the height and mobility maps
+					sMapName = window _nWinId -get prop=sHeightMapName value;
+					heightMap().aliasof(sMapName);
+					sMapName = window _nWinId -get prop=sMobilityMapName value;
+					mobilityMap().aliasof(sMapName);
+					
+					## Get the params
+					psoparams{} = $thisfile~getParams(_nWinId);
+					
+					## Run the algorithm
+					$this~psoDriver(heightMap(), _~selectedPoints(1,:), _~selectedPoints(2,:), mobilityMap(), psoparams{});
+					
+					## Re-enable the Run button
+					window _nWinId -set state=enabled item=nRUN;
+				endif
+				
+				break;
+			case ITERATION_SHOWPATHS:
+				if (getkeyval(_event{}, "value", 0))
+					window _nWinId -set state=enabled item=ITERATION_SHOWONLYBEST;
+				else
+					window _nWinId -set state=disabled item=ITERATION_SHOWONLYBEST;
+				endif
+				
+				break;
+				
+			endswitch
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure loadMap
+		##! Load a map from a file. Will open a file dialog for selecting the file containing
+		##! the map.
+		##!
+		##! \param _bIsHeightMap  !!true!!, if a height map is required, !!false!! otherwise
+		##! \return STR  The name of the created table
+		procedure $loadMap(_bIsHeightMap) :: explicit
+			tab loadedMap(), targetMap()
+			str sFileName, sMapName
+			var nMapColumn = _bIsHeightMap ? 4 : 6;
+			
+			## Open the dialog to select the map
+			sFileName = dialog "<loadpath>" -set type=filedialog title="Select file";
+			
+			## If the user cancels return directly
+			if (!sFileName.len)
+				return "";
+			endif
+			
+			## Create a new map if needed
+			if (_bIsHeightMap)
+				new _~heightMap() -free
+				sMapName = "_~heightMap()";
+			else
+				new _~mobilityMap() -free
+				sMapName = "_~mobilityMap()";
+			endif
+			
+			targetMap().aliasof(sMapName);
+			
+			## Load the file
+			load sFileName -set totable=loadedMap();
+			
+			## Deserialize the loaded map into the target table
+			$tools~grids~deserialize(loadedMap(), targetMap(), {2,3,nMapColumn});
+			
+			return sMapName;
+		endprocedure
+		
+		
+		##! The UI element IDs as used in the corresponding GUI
+		declare INITIAL_RAND := 10, INITIAL_ANGLE := 11, INITIAL_PATHS := 12
+		declare ITERATION_RAND := 20, ITERATION_COUNT := 22, ITERATION_V_OFFSET := 21
+		declare HEIGHTSCALE := 32, JUMP_MAX := 30, JUMP_PENALITY := 31, CONTRIB_ENERGY := 33, CONTRIB_VELOCITY := 34
+		
+		
+		##! \procedure getParams
+		##! Extract the parameters from the current window.
+		##!
+		##! \param _nWinId  The current window's ID
+		##! \return CST  The key-value list containing the parameters.
+		procedure $getParams(_nWinId) :: explicit
+			cst psoparams{}
+			
+			## Get the initial parameters
+			psoparams{nlen+1} = "initial.rand";
+			psoparams{nlen+1} = window _nWinId -get value item=INITIAL_RAND;
+			psoparams{nlen+1} = "initial.angle";
+			psoparams{nlen+1} = window _nWinId -get value item=INITIAL_ANGLE;
+			psoparams{nlen+1} = "initial.paths";
+			psoparams{nlen+1} = window _nWinId -get value item=INITIAL_PATHS;
+			
+			## Get the iteration paramters
+			psoparams{nlen+1} = "iteration.rand";
+			psoparams{nlen+1} = window _nWinId -get value item=ITERATION_RAND;
+			psoparams{nlen+1} = "iteration.count";
+			psoparams{nlen+1} = window _nWinId -get value item=ITERATION_COUNT;
+			psoparams{nlen+1} = "iteration.v_offset";
+			psoparams{nlen+1} = window _nWinId -get value item=ITERATION_V_OFFSET;
+			psoparams{nlen+1} = "iteration.showpaths";
+			psoparams{nlen+1} = window _nWinId -get value item=ITERATION_SHOWPATHS;
+			psoparams{nlen+1} = "iteration.showonlybest";
+			psoparams{nlen+1} = window _nWinId -get value item=ITERATION_SHOWONLYBEST;
+			
+			## Get the weighting parameters
+			psoparams{nlen+1} = "heightscale";
+			psoparams{nlen+1} = window _nWinId -get value item=HEIGHTSCALE;
+			psoparams{nlen+1} = "jump.max";
+			psoparams{nlen+1} = window _nWinId -get value item=JUMP_MAX;
+			psoparams{nlen+1} = "jump.penality";
+			psoparams{nlen+1} = window _nWinId -get value item=JUMP_PENALITY;
+			psoparams{nlen+1} = "contrib.energy";
+			psoparams{nlen+1} = window _nWinId -get value item=CONTRIB_ENERGY;
+			psoparams{nlen+1} = "contrib.velocity";
+			psoparams{nlen+1} = window _nWinId -get value item=CONTRIB_VELOCITY;
+			
+			## Append the window ID for usage in the algorithm
+			psoparams{nlen+1} = "window.id";
+			psoparams{nlen+1} = _nWinId;
+			
+			return psoparams{};
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+	<endfile>
+
+	return;
+<endinstall>
+
+warn "Dies ist ein Installations-Script. Um die enthaltenen Prozeduren zu installieren, muss es mit 'install \"<this>/plgn_pso_pathfinding_gui\"' ausgeführt werden."
+
+
+#**Ende der Datei
+ * NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+ * https://www.numere.org/
+ **********************************************************************************************#

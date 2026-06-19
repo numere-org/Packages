@@ -1,0 +1,498 @@
+#***************************************************************************************************
+ * SCRIPTNAME: pkg_geometry 
+ * =================================================================================================
+ * Hinzugefügt: 2025-03-28, um 07:57:54 *#
+
+##~ Füge hier deine Kommandos und Ausdrücke ein.
+<install>
+	<info>
+		-name="Geometry"
+		-author="Erik Hänel"
+		-version="0.0.4"
+		-type=TYPE_PACKAGE
+		-license="Apache-2.0"
+		-desc="This package provides functionalities to handle geometric problems. Currently, only polygons are supported, but the functionality will be extended in the future. You are encouraged to provide your own solutions to this package."
+		-keywords="Geometry,Polygon,Circle,Calculation"
+		-changelog="2025-03-28 v0.0.4\n  c Changed code to work with v1.1.7.2504\n2022-12-30 v0.0.3:\n  + Added keywords\n  + Added changeslog\n  + Added $geometry~polygon~fromCircle() conversion procedure"
+		-flags=DISABLE_SCREEN_OUTPUT
+		-requireversion="1.1.7.2412"
+	<endinfo>
+
+	<file name="<procpath>/geometry/polygon/tests.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $tests()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-24, um 09:43:46 *#
+		
+		##! \procedure tests
+		##! This procedure runs all tests for the polygon geometry.
+		procedure $tests() :: explicit mask
+			namespace thisfile
+			
+			$fromPoints();
+			$fromCircle();
+			$calculateArea();
+			$isClockwise();
+			$isInside();
+			$isConvex();
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure fromPoints
+		##! Test the points to polygon functionality.
+		procedure $fromPoints() :: explicit test
+			print "geometry~polygon: From points test ..."
+			tab contPnts()
+			cst idx{}
+			
+			## Create a pentagram to be converted to a pentagon
+			contPnts(:, 1) = {100, 71, 148,  52, 129};
+			contPnts(:, 2) = {50, 140,  85,  85, 140};
+			idx{} = $this~fromPoints(contPnts());
+			
+			## The returned polygon might either be clockwise
+			## or counter-clockwise
+			assert and(idx{} == {1, 4, 2, 5, 3}) || and(idx{} == {1, 3, 5, 2, 4});
+			return void;
+		endprocedure
+		
+		
+		##! \procedure fromCircle
+		##! Test the from circle conversion functionality.
+		procedure $fromCircle() :: explicit test
+			print "geometry~polygon: From circle test ..."
+			
+			## Create the polygon table
+			tab poly()
+			
+			## Calculate the polygon with a simple circle
+			poly() = $this~fromCircle({0,0,2}, 4);
+			
+			## Test the return value
+			assert poly().size == {4, 2};
+			
+			## Check the individual coordinates
+			assert abs(poly(:, 1) - {2, 0, -2, 0}) < 1e-12;
+			assert abs(poly(:, 2) - {0, 2, 0, -2}) < 1e-12;
+			
+			## Calculate the polygon with a shifted circle
+			poly() = $this~fromCircle({1,-0.5,2}, 4);
+			
+			## Test the return value
+			assert poly().size == {4, 2};
+			
+			## Check the individual coordinates
+			assert abs(poly(:, 1) - {3, 1, -1, 1}) < 1e-12;
+			assert abs(poly(:, 2) - {-0.5, 1.5, -0.5, -2.5}) < 1e-12;
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure calculateArea
+		##! Test the polygon area calculation functionality.
+		procedure $calculateArea() :: explicit test
+			print "geometry~polygon: Calculate area test ..."
+			tab poly()
+			poly(:, 1) = {0, 5, 2.5};
+			poly(:, 2) = {0, 0, 5};
+			assert abs($this~calculateArea(poly()) - 0.5*5*5) < 1e-12;
+			poly(:, 1) = {0, 5, 7, 2};
+			poly(:, 2) = {0, 0, 10, 10};
+			assert abs($this~calculateArea(poly()) - 50) < 1e-12;
+			poly(:, 1) = {7, 8, 4, 1, 1};
+			poly(:, 2) = {0, 7, 9, 6, 2};
+			assert abs($this~calculateArea(poly()) - 45) < 1e-12;
+			poly(:, 1) = {1, 1, 4, 8, 7};
+			poly(:, 2) = {2, 6, 9, 7, 0};
+			assert abs($this~calculateArea(poly()) - 45) < 1e-12;
+			return void;
+		endprocedure
+		
+		
+		##! \procedure isClockwise
+		##! Test the clockwise orientation detection functionality.
+		procedure $isClockwise() :: explicit test
+			print "geometry~polygon: Is clockwise test ..."
+			tab poly()
+			poly(:, 1) = {0, 5, 2.5};
+			poly(:, 2) = {0, 0, 5};
+			assert !$this~isClockwise(poly());
+			poly(:, 1) = {0, 5, 7, 2};
+			poly(:, 2) = {0, 0, 10, 10};
+			assert !$this~isClockwise(poly());
+			poly(:, 1) = {7, 8, 4, 1, 1};
+			poly(:, 2) = {0, 7, 9, 6, 2};
+			assert !$this~isClockwise(poly());
+			poly(:, 1) = {1, 1, 4, 8, 7};
+			poly(:, 2) = {2, 6, 9, 7, 0};
+			assert $this~isClockwise(poly());
+		endprocedure
+		
+		
+		##! \procedure isInside
+		##! Test the inside polygon detection functionality.
+		procedure $isInside() :: explicit Test
+			print "geometry~polygon: Is inside test ..."
+			tab poly()
+			poly(:, 1) = {0, 5, 7, 2};
+			poly(:, 2) = {0, 0, 10, 10};
+			assert $this~isInside(poly(), {5,2}) == true;
+			assert $this~isInside(poly(), {5,0}) == false;
+			assert $this~isInside(poly(), {-5,2}) == false;
+			assert $this~isInside(poly(), {7,9}) == false;
+			return void;
+		endprocedure
+		
+		
+		##! \procedure isConvex
+		##! Test the convex detection functionality.
+		procedure $isConvex() :: explicit test
+			print "geometry~polygon: Is convex test ..."
+			tab poly()
+			poly(:, 1) = {0, 5, 7, 2};
+			poly(:, 2) = {0, 0, 10, 10};
+			assert $this~isConvex(poly()) == true;
+			poly(4, :) = {5, 1};
+			assert $this~isConvex(poly()) == false;
+			return void;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/geometry/polygon/calculateArea.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $calculateArea()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-23, um 16:50:21 *#
+		
+		##! \procedure calculateArea
+		##! Calculates the area enclosed by the polygon passed as parameter.
+		##!
+		##! \param _poly()  The x-y polygon vertices
+		##! \return VAL  The calculated area of the polygon
+		procedure $calculateArea(_poly()) :: explicit mask
+			return abs($this~calculateTrapezoidal(_poly()) / 2);
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/geometry/polygon/fromPoints.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $fromPoints()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-23, um 16:48:46 *#
+		
+		##! \procedure fromPoints
+		##! Orders the passed points such that they are connected with the shortest path. The new order 
+		##! is returned, the original points are not touched.
+		##!
+		##! \param _points()  The x-y coordinate pairs to be ordered
+		##! \return {VAL}  The index vector describing the new order
+		procedure $fromPoints(_points()) :: explicit mask
+			## Ensure that the user provided a reasonable set of points
+			if (num(_points(:, 1)) != num(_points(:, 2)) || num(_points(:, 1)) < 3)
+				throw "Number of x and y coordinates does not match or too few points have been passed."
+			endif
+			
+			var nPts = num(_points(:, 1)), nCurr = 1, nMatch
+			tab dist()
+			cst idx{}
+			
+			## Calculate all distances
+			for (i = 1:nPts) 
+				dist(i, :) = sqrt((_points(:, 1) - _points(i, 1))^2 + (_points(:, 2) - _points(i, 2))^2);
+			endfor
+			
+			## Avoid self-connections by adding the current maximal distance
+			## to them.
+			matop dist() += max(dist()) * identity(nPts);
+			
+			## Copy the first point
+			dist(:, nCurr) = inf;
+			idx{1} = 1;
+			
+			## Connect all points to a single polygon
+			for (i = 2:nPts)
+				## Find the minimal distance
+				nMatch = minpos(dist(nCurr, :));
+				
+				## Update the index vector and the 
+				## current checking index
+				idx{i} = nMatch;
+				nCurr = nMatch;
+				
+				## Set the distance of the found match to infinity
+				dist(:, nCurr) = inf;
+			endfor
+			
+			## Return the index vector
+			return idx{};
+		endprocedure
+		
+		#*!
+		REF: https://de.mathworks.com/matlabcentral/fileexchange/35488-connect-randomly-ordered-2d-points-into-a-minimal-nearest-neighbor-closed-contour
+		*#
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/geometry/polygon/isConvex.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $isConvex()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-24, um 12:39:17 *#
+		
+		##! \procedure isConvex
+		##! This procedure returns whether the passed polygon is of convex type, i.e. all inner angles
+		##! are smaller than 180 degrees.
+		##!
+		##! \param _poly()  The polygon vertices
+		##! \return LOG  True, if the polygon is convex, false otherwise
+		procedure $isConvex(_poly()) :: explicit mask
+			## Ensure that the user provided a reasonable set of points
+			if (num(_poly(:, 1)) != num(_poly(:, 2)) || num(_poly(:, 1)) < 3)
+				throw "Number of x and y coordinates does not match or too few points have been passed."
+			endif
+			
+			var nNumOfNodes = num(_poly(:, 1))
+			
+			for (i = 1:nNumOfNodes)
+				if ($thisfile~calculateAngle(_poly(i, :), _poly(i % nNumOfNodes + 1, :), _poly((i+1) % nNumOfNodes + 1, :)) > 180)
+					return false;
+				endif
+			endfor
+			
+			return true;
+		endprocedure
+		
+		
+		##! \procedure calculateAngle
+		##! This procedure calculates the angle at a single polygon vertex.
+		##!
+		##! \param _prevVertex{}  Previous polygon vertex
+		##! \param _selVertex{}  Selected polygon vertex
+		##! \param _trailVertex{}  Trailing polygon vertex
+		##! \return VAL  The angle at the vertex in degrees
+		procedure $calculateAngle(_prevVertex{}, _selVertex{}, _trailVertex{}) :: explicit mask
+			## Catch multiples of 360 degrees
+			if (phi(_prevVertex{1} - _selVertex{1}, _prevVertex{2} - _selVertex{2}) - phi(_trailVertex{1} - _selVertex{1}, _trailVertex{2} - _selVertex{2}) < 0)
+				return degree(phi(_prevVertex{1} - _selVertex{1}, _prevVertex{2} - _selVertex{2}) - phi(_trailVertex{1} - _selVertex{1}, _trailVertex{2} - _selVertex{2}))+360;
+			endif
+			
+			return degree(phi(_prevVertex{1} - _selVertex{1}, _prevVertex{2} - _selVertex{2}) - phi(_trailVertex{1} - _selVertex{1}, _trailVertex{2} - _selVertex{2}));
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/geometry/polygon/isInside.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $isInside()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-24, um 09:58:41 *#
+		
+		##! \procedure isInside
+		##! Determines, whether a point is inside a polygon area. If a point is on an edge of the polygon,
+		##! it is considered as outside of the polygon.
+		##!
+		##! \param _poly()  The polygon vertices
+		##! \param _pnt{}  The point to locate
+		##! \return LOG  True, if the point is part of the polygon area
+		procedure $isInside(_poly(), _pnt{}) :: explicit mask
+			## Ensure that the user provided a reasonable set of points
+			if (num(_poly(:, 1)) != num(_poly(:, 2)) || num(_poly(:, 1)) < 3)
+				throw "Number of x and y coordinates does not match or too few points have been passed."
+			endif
+			
+			var nWindingNumber = 0, nNumOfNodes = num(_poly(:, 1)), nIsLeft = 0, fDiff = 0;
+			
+			## Check each edge
+			for (i = 1:nNumOfNodes)
+				fDiff = _poly(i % nNumOfNodes+1, 2) - _pnt{2};
+				
+				## Is there a crossing?
+				if ((_poly(i, 2) - _pnt{2}) * fDiff < 0)
+					nIsLeft = $thisfile~isLeft(_poly(i, :), _poly(i % nNumOfNodes+1, :), _pnt{});
+					
+					## Only identical crossings are allowed
+					if (nIsLeft > 0 && fDiff > 0)
+						nWindingNumber++;
+					elseif (nIsLeft < 0 && fDiff < 0)
+						nWindingNumber--;
+					endif
+				endif
+			endfor
+			
+			return nWindingNumber != 0;
+		endprocedure
+		
+		
+		##! \procedure isLeft
+		##!  Tests, if a point is left/on/right of an infinite line.
+		##!
+		##! \param _firstVertex{}  First line point
+		##! \param _secondVertex{}  Second line point
+		##! \param _pnt{}  Test point
+		##! \return VAL  !!>0!! for !!_pnt!! left of the line through !!_firstVertex{}!! and 
+		##! !!_secondVertex{}!!, !!=0!! for !!_pnt!! on the line and !!<0!! for !!_pnt!! right of the line
+		procedure $isLeft(_firstVertex{}, _secondVertex{}, _pnt{}) :: explicit mask
+			return ((_secondVertex{1} - _firstVertex{1}) * (_pnt{2} - _firstVertex{2}) - (_pnt{1} -  _firstVertex{1}) * (_secondVertex{2} - _firstVertex{2}));
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/geometry/polygon/calculateTrapezoidal.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $calculateTrapezoidal()
+		* ============================================================================================
+		* Hinzugefügt: 2022-02-28, um 22:06:52 *#
+		
+		##! \procedure calculateTrapezoidal
+		##! Private helper procedure to calculate the trapezoidal sum of the passed polygon segments.
+		##! Used to calculate the area and the orientation of the polygon.
+		##!
+		##! \param _poly()  The x-y polygon vertices
+		##! \return VAL  The trapezoial sum
+		procedure $calculateTrapezoidal(_poly()) :: explicit mask private
+			## Ensure that the user provided a reasonable set of points
+			if (num(_poly(:, 1)) != num(_poly(:, 2)) || num(_poly(:, 1)) < 3)
+				throw "Number of x and y coordinates does not match or too few points have been passed."
+			endif
+			
+			var fSum = 0, nNumOfNodes = num(_poly(:, 1))
+			
+			## Apply the Gaussian trapezoidal formula
+			for (i = 1:nNumOfNodes)
+				fSum += (_poly(i % nNumOfNodes+1, 1) - _poly(i, 1)) * (_poly(i, 2) + _poly(i % nNumOfNodes+1, 2));
+			endfor
+			
+			## Return, whether the orientation is clock- or counter-clockwise
+			return fSum;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/geometry/polygon/isClockwise.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $isClockwise()
+		* ============================================================================================
+		* Hinzugefügt: 2022-02-28, um 22:03:59 *#
+		
+		##! \procedure isClockwise
+		##! Determines the orientation of the passed polygon.
+		##!
+		##! \param _poly()  The x-y polygon vertices
+		##! \return LOG  !!true!!, if the polygon is clockwise, !!false!! otherwise
+		procedure $isClockwise(_poly()) :: explicit mask
+			return $this~calculateTrapezoidal(_poly()) > 0;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/geometry/polygon/fromCircle.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $fromCircle()
+		* =================================================================================================
+		* Hinzugefügt: 2022-11-14, um 09:47:10 *#
+		
+		##! \procedure fromCircle
+		##! Creates a polygon from the passed circle parameters in !!_circle{}!! using the selected number
+		##! of samples !!_nSamples!!. The polygon does only contain unique points, i.e. the end point is not
+		##! the same as the starting point.
+		##!
+		##! \param _circle{}  The circle parameters: !!x0, y0, radius!!
+		##! \param _nSamples  (!!=50!!) The desired number of vertices in the returned polygon
+		##! \return TAB  The final polygon as a table
+		procedure $fromCircle(_circle{}, _nSamples = 50) :: explicit
+			tab poly()
+			
+			## Create the array in cylindrical coordinates
+			poly(:, 1) = 0*{1:_nSamples} + _circle{3};
+			poly(:, 2) = _2pi/_nSamples * {0:_nSamples-1};
+			
+			## Convert the array into cartesian coordinates and
+			## offset the center
+			matop poly() = cyltocart(poly()) + transpose(_circle{1:2});
+			
+			## Return the final polygon
+			return poly();
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	return;
+<endinstall>
+
+warn "Dies ist ein Installations-Script. Um die enthaltenen Prozeduren zu installieren, muss es mit 'install \"<this>/pkg_geometry\"' ausgeführt werden."
+
+
+#**Ende der Datei
+ * NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+ * https://www.numere.org/
+ **************************************************************************************************#

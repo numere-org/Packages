@@ -1,0 +1,12 @@
+{
+	"author": "Erik Hänel",
+	"changelog": "2025-03-28 v0.5.2:\n  c Changed code to make it runnable on v1.1.7.2504\n  + Modernized sections of the code\n2022-12-30 v0.5.1:\n  + Added keywords\n  + Added changeslog",
+	"description": "This plugin provides a framework for simultaneous actions on multiple files. See \"help batch\" for further details.",
+	"keywords": "Batch,Multi,Processing,Evaluation,Analysis,Driver",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "Batch processing",
+	"requirements": {
+		"version": "1.1.7.2412"
+	}
+}

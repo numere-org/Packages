@@ -1,0 +1,13 @@
+{
+	"author": "Erik Hänel",
+	"changelog": "2025-04-02 v0.1.8:\n  c Changed code to work with v1.1.7.2504\n\n2024-01-08 v0.1.7:\n  - removed dependency on \"metrics.ini\"\n  + Added low-level Python lexer\n\n2022-12-30 v0.1.6:\n  + Added keywords\n  + Added changeslog",
+	"description": "This plugin provides a method to calculate some standard code metrics and dependency trees from the selected software code project. Currently, only MATLAB code is supported. Additional requirement is the existence of GraphViz on your system, which is used to draw the dependency trees of the analyzed code. Depends on the \"dot\" plugin.\n\nUpdated to be ready for the upcoming 1.1.5 change.",
+	"keywords": "Code Metrics,McGabe,Cyclomatic Complexity,SLOC,Code Quality,Dependency",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "Code metrics",
+	"requirements": {
+		"packages": "pkg_tools,plgn_dot",
+		"version": "1.1.7.2412"
+	}
+}

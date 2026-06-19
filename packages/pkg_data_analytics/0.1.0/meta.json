@@ -1,0 +1,12 @@
+{
+	"author": "Erik Hänel",
+	"changelog": "2025-03-31 v0.1.0\n  + Added $table~summarize() procedure\n2025-03-28 v0.0.9\n  c Changed code to cope with new v1.1.7.2504\n  + Modernized some solutions to speed up calculation\n2023-06-02 v0.0.8\n  c Removed the obscure tic() and toc() functions from $2d~findContour()\n2023-04-07 v0.0.7\n  + Added possibility to calculate a pivot table from a data table\n2022-12-30 v0.0.6\n  + Added keywords\n  + Added changeslog\n2022-10-17 v0.0.5\n  + Added the table namespace\n  c Moved some procedures",
+	"description": "This package provides functionalities to handle data analysis problems in one and two dimensions extended to some audio analysis and logistic regression functionalities. The functionality is currently quite limited, but will be extended in the future. You are encouraged to provide your own solutions to this package.",
+	"keywords": "Data,Analytics,Science,Table,Statistics,Regression",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "Data analytics",
+	"requirements": {
+		"version": "1.1.7.2412"
+	}
+}

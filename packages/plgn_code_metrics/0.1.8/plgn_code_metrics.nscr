@@ -1,0 +1,1001 @@
+#***************************************************************************************************
+ * SCRIPTNAME: plgn_code_metrics 
+ * =================================================================================================
+ * Hinzugefügt: 2025-04-02, um 19:44:30 *#
+
+##~ Füge hier deine Kommandos und Ausdrücke ein.
+<install>
+	<info>
+		-name="Code metrics"
+		-author="Erik Hänel"
+		-version="0.1.8"
+		-type=TYPE_PLUGIN
+		-license="Apache-2.0"
+		-desc="This plugin provides a method to calculate some standard code metrics and dependency trees from the selected software code project. Currently, only MATLAB code is supported. Additional requirement is the existence of GraphViz on your system, which is used to draw the dependency trees of the analyzed code. Depends on the \"dot\" plugin.\n\nUpdated to be ready for the upcoming 1.1.5 change."
+		-keywords="Code Metrics,McGabe,Cyclomatic Complexity,SLOC,Code Quality,Dependency"
+		-changelog="2025-04-02 v0.1.8:\n  c Changed code to work with v1.1.7.2504\n\n2024-01-08 v0.1.7:\n  - removed dependency on \"metrics.ini\"\n  + Added low-level Python lexer\n\n2022-12-30 v0.1.6:\n  + Added keywords\n  + Added changeslog"
+		-flags=DISABLE_SCREEN_OUTPUT
+		-requirepackages="pkg_tools,plgn_dot"
+		-plugincommand="metrics"
+		-pluginmain="$plugins~metrics~main(<EXPRESSION>)"
+		-requireversion="1.1.7.2412"
+	<endinfo>
+
+	<file name="<procpath>/plugins/metrics/main.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $main()
+		* ============================================================================================
+		* Hinzugefügt: 2020-05-21, um 11:52:24 *#
+		
+		##! \procedure main
+		##! This procedure implements the interface to the plugin API. It will ensure that
+		##! the plugin is successfully configured and that the root folder of the software
+		##! package, which shall be analyzed, has been selected.
+		##!
+		##! \param _sExpression  (!!=""!!) Plugin command expression part.
+		procedure $main(_sExpression = "")
+			str sPath = _sExpression
+			
+			## Find the root folder if it was not selected
+			if (!sPath.len())
+				sPath = dialog "" -set type=dirdialog title="Please choose root folder of the software package";
+				
+				if (!sPath.len())
+					throw "Root folder was not selected."
+				endif
+			endif
+			
+			## Run the calculation
+			$this~calculate(sPath, 4);
+			
+			return void;
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://sites.google.com/site/numereframework/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/plugins/metrics/calculate.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROCEDURE: $calculate()
+		* ============================================================================================
+		* Generated: 2018-08-06, at 12:01:28 *#
+		
+		##! \procedure calculate
+		##! Procedure for calculating all relevant metrics.
+		##!
+		##! \param _sBasePath  The root folder to start the search for folders and code files
+		##! \param _nFolderDepth  The defined recursion depth into the code folders
+		procedure $calculate(_sBasePath, _nFolderDepth) :: mask explicit
+			var fAxisMax = nan, bUseFunctionFile = false, nDim = 0
+			str sMetricsDir = _sBasePath + "/metrics", sLexer = "m"
+			tab metricsdata(), calltree()
+			cst functionlist{}, functions{}, metricsresult{}, folders{}
+			clear string() -ignore
+			
+			## Prepare the headline of the metrics table
+			metricsdata(#, :) = {"Function Identifier", "Lines Total", "Lines of Code", "Comment Percentage", "Complexity"};
+			
+			## Prepare the output folder, if it doesn't exist
+			new -dir=sMetricsDir
+			
+			## If the function list is available in the output folder
+			## then create a calltree during evaluation. Prepare the
+			## necessary parameters here
+			if (findfile("functionlist.txt", sMetricsDir))
+				functionlist{} = read sMetricsDir + "/functionlist.txt";
+				functions{} = substr(functionlist{}, strrfnd("::", functionlist{})+2);
+				functions{} = substr(functions{}, 1, strlen(functions{})-1);
+				nDim = num(functions{});
+				bUseFunctionFile = true;
+				matop calltree() = zero(nDim, nDim);
+			endif
+			
+			## Get all folders
+			folders{} = $tools~getFoldersRecursively(_sBasePath, _nFolderDepth);
+			
+			## Inform the user
+			print "Processing " + #num(folders{}) + " unique folder path(s) ..."
+			
+			## Try to figure out, which lexer is necessary
+			if (num(getfilelist(folders{1} + "/*.py")))
+				sLexer = "py";
+			endif
+			
+			## Call the correct lexer
+			if (sLexer == "m")
+				metricsresult{} = $plugins~metrics~matlab~lexer(calltree(), metricsdata(), folders{}, functionlist{}, functions{});
+			elseif (sLexer == "py")
+				metricsresult{} = $plugins~metrics~python~lexer(calltree(), metricsdata(), folders{}, functionlist{}, functions{});
+			endif
+			
+			## Write the table to a file
+			new -file=sMetricsDir + "/metrics.txt"
+			write metricsresult{} -set file=sMetricsDir + "/metrics.txt" -mode=trunc -noquotes
+			
+			## Save the results
+			save metricsdata() -file=sMetricsDir + "/metricsdata"
+			
+			if (bUseFunctionFile)
+				save calltree() -file=sMetricsDir + "/calltreedata"
+			endif
+			
+			## Create the function list, if it doesn't exist. Otherwise
+			## create the call tree.
+			if (!bUseFunctionFile)
+				write substr(metricsresult{}, 1, strrfnd("(", metricsresult{})) -set file=sMetricsDir + "/functionlist.txt" -noquotes -mode=trunc
+			else
+				print "Creating calltree ..."
+				$this~createCallTree("", sMetricsDir, calltree());
+			endif
+			
+			## Plot the histograms
+			print "Creating histograms ..."
+			plot -set silent box font=heros grid hires=all
+			fAxisMax = 1.05*max(metricsdata(:, 2));
+			hist metricsdata(:, 2) -set bins=19 x=0:fAxisMax binlabel="Non-empty lines" file=sMetricsDir + "/nonemptylines" silent plotcolors="N"
+			fAxisMax = 1.05*max(metricsdata(:, 3));
+			hist metricsdata(:, 3) -set bins=19 x=0:fAxisMax binlabel="Code lines" file=sMetricsDir + "/codelines" silent plotcolors="N"
+			fAxisMax = 1.05*max(metricsdata(:, 4));
+			hist metricsdata(:, 4) -set bins=19 x=0:fAxisMax binlabel="Comment percentage" file=sMetricsDir + "/commentpercentage" silent plotcolors="N"
+			fAxisMax = 1.05*max(metricsdata(:, 5));
+			hist metricsdata(:, 5) -set bins=19 x=0:fAxisMax binlabel="Cyclomatic complexity" file=sMetricsDir + "/complexity" silent plotcolors="N"
+			
+			print "Metrics calculated successfully."
+			return void;
+		endprocedure
+		
+		#**End of the procedure
+		* NumeRe: Framework für Numerische Rechnungen | Free numerical software licenced under GNU GPL v3
+		* https://sites.google.com/site/numereframework/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/plugins/metrics/createCallTree.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $createCallTree()
+		* ============================================================================================
+		* Hinzugefügt: 2018-12-12, um 09:59:36 *#
+		
+		##! \procedure createCallTree
+		##! This procedure creates the call tree from the call tree matrix obtained 
+		##! by the !!$calculate()!! procedure.
+		##!
+		##! \param _sSelectedCluster  (!!=""!!) Selection of the cluster, which shall be highlighted in the created output. Can 
+		##! be left empty to create the overall call tree. If !!"INTERFACES"!! is used, then the output will only show 
+		##! connections between clusters.
+		##! \param _sMetricsPath  (!!="<loadpath>"!!) File path, where all metrics of the analyzed software package are located. 
+		##! At least the !!"functionlist.txt"!! is needed to calculate the call tree.
+		##! \param _calltree()  Call tree matrix
+		procedure $createCallTree(_sSelectedCluster = "", _sMetricsPath = "<loadpath>", _calltree()) :: mask explicit 
+			str sSelectedCluster = to_string(_sSelectedCluster), sFileName, sDotApplication
+			var nSelectionStart
+			cst dotfile{}, functionlist{}
+			
+			namespace thisfile
+			
+			if (!findfile("functionlist.txt", _sMetricsPath))
+				throw "No function list available."
+			endif
+			
+			if (sSelectedCluster.len)
+				sFileName = to_lowercase(sSelectedCluster);
+			else
+				sFileName = "calltree";
+			endif
+			
+			## Load function list and remove the trailing parenthesis
+			functionlist{} = read _sMetricsPath + "/functionlist.txt";
+			functionlist{} = strip(functionlist{}, "", "(");
+			
+			write "digraph NumeRe {\n    splines=ortho;\n    ratio=0.4;\n\n" -set file=_sMetricsPath + "/" + sFileName + ".dot" -mode=trunc -nq
+			
+			$createClusters(sSelectedCluster, dotfile{}, functionlist{});
+			
+			if (sSelectedCluster.len && sSelectedCluster != "INTERFACES")
+				for (i = 1:cnt(functionlist{}))
+					if (strfnd(sSelectedCluster+"::", functionlist{i}))
+						if (!nSelectionStart)
+							nSelectionStart = i;
+						elseif (i == cnt(functionlist{}))
+							$createSubTree(nSelectionStart, i, sSelectedCluster, _calltree(), dotfile{}, functionlist{});
+						endif
+					elseif (nSelectionStart)
+						$createSubTree(nSelectionStart, i-1, sSelectedCluster, _calltree(), dotfile{}, functionlist{});
+						break
+					endif
+				endfor -mask
+				if (!nSelectionStart)
+					throw "The desired cluster \"" + sSelectedCluster + "\" was not found."
+				endif
+			else
+				$createOverallTree(_calltree(), dotfile{}, functionlist{}, sSelectedCluster);
+			endif
+			
+			write dotfile{:}, "}" -set file=_sMetricsPath + "/" + sFileName + ".dot" -mode=app -nq
+			$runDot(_sMetricsPath + "/" + sFileName + ".dot");
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure runDot
+		##! Simple non-!!explicit!! wrapper around the !!dot!! plugin command. We use this wrapper to avoid version 
+		##! conflicts with the plugin, which might occur, if the main procedure might be changed in the future.
+		##!
+		##! \param _sFileName  The filename of the *.dot file
+		procedure $runDot(_sFileName) :: mask
+			dot _sFileName;
+			return void;
+		endprocedure
+		
+		
+		##! \procedure createClusters
+		##! Procedure for creating the clusters for the call tree of all functions. If there's a selected 
+		##! cluster, then it will be highlighted in a reddish colour.
+		##!
+		##! \param _sSelectedCluster  Name of the selected cluster.
+		##! \param _dotfile{}&  Target cluster, representing the dot file itself.
+		##! \param _functionlist{}  The contents of the loaded function list
+		procedure $createClusters(_sSelectedCluster, _dotfile{}&, _functionlist{})
+			str sClusterList = "", sCurrentCluster = ""
+			var nClusterCount
+			
+			for (i = 1:cnt(_functionlist{}))
+				if (strfnd("::", _functionlist{i}))
+					if (sCurrentCluster == substr(_functionlist{i}, 1, strfnd("::", _functionlist{i})-1))
+						sClusterList += " \"" + _functionlist{i} + "\"";
+						nClusterCount++;
+					else
+						if (strlen(sClusterList) && nClusterCount > 1)
+							_dotfile{nlen + 1} = sClusterList + "\n    }";
+						endif
+						sCurrentCluster = substr(_functionlist{i}, 1, strfnd("::", _functionlist{i})-1);
+						if (sCurrentCluster == _sSelectedCluster && _sSelectedCluster.len)
+							sClusterList = "    subgraph cluster_" + sCurrentCluster + " {\n        style=filled;\n        color=tomato;\n        label=\"" + sCurrentCluster + "\";\n        \"" + _functionlist{i} + "\"";
+						else
+							sClusterList = "    subgraph cluster_" + sCurrentCluster + " {\n        style=filled;\n        color=gold;\n        label=\"" + sCurrentCluster + "\";\n        \"" + _functionlist{i} + "\"";
+						endif
+						nClusterCount = 1;
+					endif
+				endif
+			endfor -mask
+			
+			if (strlen(sClusterList) && nClusterCount > 1)
+				_dotfile{nlen + 1} = sClusterList + "\n    }";
+			endif
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure createOverallTree
+		##! Creates the simplest tree by including every cluster and not restricting any calls. It can also
+		##! create the !!"INTERFACE"!! calltree.
+		##!
+		##! \param _calltree()  Calltree data table.
+		##! \param _dotfile{}&  Target cluster, representing the dot file itself.
+		##! \param _functionlist{}  The contents of the loaded function list
+		##! \param _sSelectedCluster  Shall be !!"INTERFACES"!! for the interface calltree, anything else otherwise.
+		procedure $createOverallTree(_calltree(), _dotfile{}&, _functionlist{}, _sSelectedCluster)
+			
+			for (i = 1:cnt(_functionlist{}))
+				for (j = 1:cnt(_functionlist{}))
+					if (_calltree(i, j))
+						if (_sSelectedCluster != "INTERFACES" || substr(_functionlist{i}, 1, strfnd("::", _functionlist{i})) != substr(_functionlist{j}, 1, strfnd("::", _functionlist{j})))
+							_dotfile{nlen + 1} = "    \"" + _functionlist{i} + "\" -> \"" + _functionlist{j} + "\"";
+						endif
+					endif
+				endfor
+			endfor
+			
+			return void
+		endprocedure
+		
+		
+		##! \procedure createSubTree
+		##! Procedure for displaying a selected sub tree of the overall call tree.
+		##!
+		##! \param _nSelectionStart  First entry in the list, which shall be included.
+		##! \param _nSelectionEnd  Last entry in the list, which shall be included.
+		##! \param _sSelectedCluster  Name of the selected cluster (if any).
+		##! \param _calltree()  Call tree data table.
+		##! \param _dotfile{}&  Target cluster, representing the dot file itself.
+		##! \param _functionlist{}  The contents of the loaded function list
+		procedure $createSubTree(_nSelectionStart, _nSelectionEnd, _sSelectedCluster, _calltree(), _dotfile{}&, _functionlist{})
+			tab examinedTreeParts()
+			
+			examinedTreeParts(:, 1) = 0 * _calltree(:, 1);
+			
+			for (i = _nSelectionStart:_nSelectionEnd)
+				for (j = 1:cnt(_functionlist{}))
+					if (_calltree(i, j) && !examinedTreeParts(j, 1))
+						_dotfile{nlen + 1} = "    \"" + _functionlist{i} + "\" -> \"" + _functionlist{j} + "\" [color=red, style=\"setlinewidth(3)\"]";
+						if (i != j && !examinedTreeParts(j, 1))
+							$thisfile~followTree(j, examinedTreeParts(), _calltree(), _sSelectedCluster, _dotfile{}, _functionlist{});
+						endif
+					endif
+				endfor
+			endfor
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure followTree
+		##! Procedure for following the tree of a single call 
+		##! and displaying it in the overall tree. This procedure 
+		##! will be called recursively.
+		##!
+		##! \param _nTreeItem  Function item to follow
+		##! \param _examinedTreeParts()  List of all already examined tree items (to avoid endless recursions).
+		##! \param _calltree()  Call tree data table.
+		##! \param _sSelectedCluster  Name of the selected cluster (if any).
+		##! \param _dotfile{}&  Target cluster, representing the dot file itself.
+		##! \param _functionlist{}  The contents of the loaded function list
+		procedure $followTree(_nTreeItem, _examinedTreeParts(), _calltree(), _sSelectedCluster, _dotfile{}&, _functionlist{})
+			_examinedTreeParts(_nTreeItem, 1) = true;
+			
+			for (i = 1:cnt(_functionlist{}))
+				if (_calltree(_nTreeItem, i))
+					if (strfnd(_sSelectedCluster + "::", _functionlist{_nTreeItem}))
+						_dotfile{nlen + 1} = "    \"" + _functionlist{_nTreeItem} + "\" -> \"" + _functionlist{i} + "\" [color=red, style=\"setlinewidth(3)\"]";
+					else
+						_dotfile{nlen + 1} = "    \"" + _functionlist{_nTreeItem} + "\" -> \"" + _functionlist{i} + "\"";
+					endif
+					if (_nTreeItem != i && !_examinedTreeParts(i, 1))
+						$thisfile~followTree(i, _examinedTreeParts(), _calltree(), _sSelectedCluster, _dotfile{}, _functionlist{});
+					endif
+				endif
+			endfor -mask
+			
+			return void;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://sites.google.com/site/numereframework/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/plugins/metrics/matlab/lexer.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $lexer()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-13, um 08:54:02 *#
+		
+		##! \procedure lexer
+		##! This procedure implements a MATLAB-specific lexer used by the !!metrics!! plugin to read and
+		##! parse MATLAB files.
+		##!
+		##! \param _calltree()&  Target calltree table
+		##! \param _metrics()&  Target metrics table
+		##! \param _folders{}  List of folders to search files in
+		##! \param _functionlist{}  List containing fully qualified function names.
+		##! \param _functions{}  List with only the function names (without the corresponding namespaces).
+		##! \return {STR}  The list of evaluated code units including their metrics in tabular fashion.
+		procedure $lexer(_calltree()&, _metrics()&, _folders{}, _functionlist{}, _functions{}) :: mask explicit
+			var fCommentDensity, nCyclomaticComplexity, nLinesOfCode, nLinesTotal, nFunctionCounter = 1
+			str sFunction, sNameSpace, sDrive, sFolder, sExt
+			cst fcontents{}, fcontents_comments{}, files{}, metricsresult{}
+			## File headline
+			metricsresult{} = "Function\tlinesTotal\tlinesCode\tCommentPercentage\tComplexity";
+			
+			## Cycle through the generated list
+			for (i = 1:num(_folders{}))
+				## Get all m-files in the current folder
+				files{} = getfilelist(_folders{i} + "/*.m", true);
+				
+				## Do nothing, if the current folder is empty
+				if (!num(files{}))
+					continue
+				endif
+				
+				print "Evaluating folder " + #i + "/" + #num(_folders{}) + ": \"" + _folders{i} + "\" ..."
+				
+				## Go through all files in the current folder
+				for (j = 1:num(files{}))
+					{sDrive, sFolder, sNameSpace, sExt} = getfileparts(files{j});
+					progress j - 1 -set first=0 last=num(files{}) type="   <bar>  Evaluating file: \"" + sNameSpace + ".m\" ..."
+					
+					## Split the file path into its parts
+					
+					## Create the namespace
+					if (sFolder.fnd("@"))
+						sNameSpace = sFolder.sub(sFolder.rfnd("@")+1);
+					elseif (sFolder.fnd("+"))
+						sNameSpace = sFolder.sub(sFolder.fnd("+")+1) + "::" + sNameSpace;
+					endif
+					
+					## Replace all package path parts with scope operators
+					sNameSpace = replaceall(sNameSpace, "/+", "::");
+					sFunction = "";
+					
+					## Open the current file and read the contents
+					fcontents{} = read files{j} -set comments="%"; ## reads only lines with code content
+					fcontents_comments{} = read files{j}; ## reads every non-empty line
+					
+					## measure all functions in the file
+					while (num(fcontents{}) && num(fcontents_comments{}))
+						{sFunction, nLinesTotal, nLinesOfCode, fCommentDensity, nCyclomaticComplexity} = $this~measureFunction(fcontents{}, fcontents_comments{}, _calltree(), _functionlist{}, _functions{}, nFunctionCounter, substr(files{j}, strrfnd("/", files{j})+1));
+						_metrics(num(_metrics(:, 1))+1, :) = {sNameSpace + "::" + sFunction.sub(1, sFunction.fnd("\t")-1), nLinesTotal, nLinesOfCode, fCommentDensity, nCyclomaticComplexity};
+						
+						if (!sFunction.fnd("class properties "))
+							metricsresult{nFunctionCounter} = sNameSpace + "::" + sFunction;
+							nFunctionCounter++;
+						endif
+					endwhile
+				endfor
+				
+				progress 100 -set type="   <bar>  Folder finished."
+			endfor -mask
+			
+			return metricsresult{};
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/plugins/metrics/matlab/measureFunction.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROCEDURE: $measureFunction()
+		* ============================================================================================
+		* Generated: 2018-08-06, at 10:59:00 *#
+		
+		##! \procedure measureFunction
+		##! Procedure for measuring the metrics of a single MATLAB function. Will remove the already 
+		##! measured functions from the both passed file contents clusters.
+		##!
+		##! \param _fcontents{}&  The file contents without empty lines and comments.
+		##! \param _fcontents_comments{}&  The file contents without empty lines but with comments.
+		##! \param _calltree()&  Target calltree table
+		##! \param _functionlist{}  List containing fully qualified function names.
+		##! \param _functions{}  List with only the function names (without the corresponding namespaces).
+		##! \param _nFunctionCounter  Function counter variable.
+		##! \param _sFileName  Name of the current file as function name fallback (Function is a script).
+		##! \return STR  Function name with the metrics as a table row
+		##! \return VAL  Lines total (with comments)
+		##! \return VAL  Lines of code
+		##! \return VAL  Comment density
+		##! \return VAL  Cyclomatic complexity
+		procedure $measureFunction(_fcontents{}&, _fcontents_comments{}&, _calltree()&, _functionlist{}, _functions{}, _nFunctionCounter, _sFileName) :: mask explicit private
+			var nLinesOfCode = 0, nLinesTotal = 0, nCodeComments = 0, nEmptyLines = 0, nComplexity = 1, bIsClassdef = false, bUseFunctionFile = num(_functions{})
+			str sFunction, sNameSpace = _sFileName.sub(1, _sFileName.len-2);
+			tab currentMatches()
+			
+			namespace thisfile
+			
+			## Extract the function name
+			{bIsClassdef, sFunction} = $extractFunctionName(_fcontents{1}, _sFileName);
+			
+			## Create a local function mask
+			currentMatches(:, 2) = !(startswith(_functionlist{}, "Local_") && !startswith(_functionlist{}, sNameSpace + "::"));
+			
+			## Calculate the LOC
+			for (i = 2:num(_fcontents{}))
+				## If the current line contains the "function" keyword,
+				## leave the current loop and return the start of the
+				## next function
+				if (substr(_fcontents{i}, str_not_match(" \t", _fcontents{i}), 9) == "function ")
+					_fcontents{} = _fcontents{i:nlen};
+					nLinesOfCode = i - 1 - nEmptyLines;
+					break
+				endif
+				
+				## Ignore empty lines
+				if (!str_not_match(" \t", _fcontents{i}))
+					nEmptyLines++;
+				endif
+				
+				## If there's a function file, try to detect calls
+				## to the functions available in the function file
+				if (bUseFunctionFile && !bIsClassdef)
+					currentMatches(:, 1) = findtoken(_fcontents{i}, _functions{}, " .()+-*/[]{}^=<>~:&|';,\ \t@") != 0;
+					_calltree(_nFunctionCounter, :) += currentMatches(:, 1) * currentMatches(:, 2);
+				endif
+				
+				## Summarize the complexity of the file 
+				if (!bIsClassdef)
+					nComplexity = nComplexity + $calcComplexity(_fcontents{i});
+				endif
+				
+				if (i == num(_fcontents{}))
+					_fcontents{} = "";
+					break;
+				endif
+			endfor
+			
+			## Fallback
+			if (!nLinesOfCode)
+				nLinesOfCode = num(_fcontents{}) - nEmptyLines;
+			endif
+			
+			nEmptyLines = 0;
+			
+			## Calculate the total number of non-empty lines
+			for (i = 2:num(_fcontents_comments{}))
+				if (substr(_fcontents_comments{i}, str_not_match(" \t", _fcontents_comments{i}), 9) == "function ")
+					_fcontents_comments{} = _fcontents_comments{i:nlen};
+					nLinesTotal = i - 1 - nEmptyLines;
+					break
+				endif
+				if (strfnd("%", _fcontents_comments{i}))
+					nCodeComments++;
+				endif
+				if (!str_not_match(" \t", _fcontents_comments{i}))
+					nEmptyLines++;
+				endif
+				
+				if (i == num(_fcontents_comments{}))
+					_fcontents_comments{} = "";
+					break;
+				endif
+			endfor
+			
+			## Fallback
+			if (!nLinesTotal)
+				nLinesTotal = num(_fcontents_comments{}) - nEmptyLines;
+			endif
+			
+			## Output
+			##_metrics(nIdx, :) = nLinesTotal, nLinesOfCode, (nLinesOfCode > 0 ? nCodeComments/nLinesOfCode*100 : nan), nComplexity;
+			sFunction += "\t" + #nLinesTotal + "\t" + #nLinesOfCode + "\t" + replaceall(#(nCodeComments/nLinesOfCode*100), ".", ",") + "\t" + #nComplexity;
+			
+			## Return function name and new starting indices
+			return {sFunction, nLinesTotal, nLinesOfCode, (nLinesOfCode > 0 ? nCodeComments/nLinesOfCode*100 : nan), nComplexity};
+		endprocedure
+		
+		#**End of the procedure
+		* NumeRe: Framework für Numerische Rechnungen | Free numerical software licenced under GNU GPL v3
+		* https://sites.google.com/site/numereframework/
+		**********************************************************************************************#
+		
+		
+		##! \procedure extractFunctionName
+		##! Extracts the function name of the current examined
+		##! function and determines, if it is a class definition 
+		##! header.
+		##!
+		##! \param _sFirstCodeLine  First line in the file, 
+		##! which contains either !!"function"!! or !!"classdef"!!.
+		##! \param _sFileName  File name as fallback (Function is a script).
+		##! \return LOG  Logical value indicating, whether this is a class definition.
+		##! \return STR  The function name
+		procedure $extractFunctionName(_sFirstCodeLine, _sFileName)
+			var bIsClassdef = false;
+			str sFunction = "";
+			
+			if (_sFirstCodeLine.fnd("function "))
+				sFunction = _sFirstCodeLine.sub(_sFirstCodeLine.fnd("function ")+9);
+			elseif (_sFirstCodeLine.fnd("classdef "))
+				bIsClassdef = true;
+				sFunction = "class properties " + _sFileName;
+			else
+				sFunction = _sFileName;
+			endif
+			
+			## Isolate the function name
+			if (sFunction.fnd(";"))
+				sFunction = sFunction.sub(1, sFunction.fnd(";")-1);
+			endif
+			
+			if (sFunction.fnd("="))
+				sFunction = sFunction.sub(sFunction.fnd("=")+1);
+			endif
+			
+			if (sFunction.fnd("("))
+				sFunction = sFunction.sub(1, sFunction.fnd("(")) + ")";
+			elseif (!bIsClassdef)
+				sFunction += "()";
+			endif
+			
+			## Strip all spaces
+			sFunction = $tools~strings~strip(sFunction);
+			
+			## Die Rückgabeliste enthält Variablen, die an späterer Stelle im Code gefunden wurden.
+			return {bIsClassdef, sFunction};
+		endprocedure
+		
+		
+		
+		##! \procedure calcComplexity
+		##! Procedure for calculating the complexity of a single line. The return value
+		##! of this procedure has to be added to the result of the previous lines.
+		##!
+		##! \param _sLine  The current code line.
+		##! \return VAL  The cyclomatic complexity of this line
+		procedure $calcComplexity(_sLine) :: explicit
+			var nComplexity = 0, nStartPos
+			str sLine = _sLine
+			
+			nStartPos = sLine.nmtch(" \t");
+			
+			if (!nStartPos)
+				return 0;
+			endif
+			
+			## Look for flow control statements
+			if (sLine.sub(nStartPos, 3) == "if " || sLine.sub(nStartPos, 7) == "elseif " || sLine.sub(nStartPos, 4) == "for " || sLine.sub(nStartPos, 6) == "while " || sLine.sub(nStartPos, 4) == "try " || sLine.sub(nStartPos, 5) == "case ")
+				nComplexity = 1;
+			endif
+			
+			## Count the logical operators in the current line
+			for (i = nStartPos:sLine.len)
+				if (sLine.at(i) == "|" || sLine.at(i) == "&")
+					nComplexity++;
+					i = sLine.nmtch("|&", i);
+					if (!i)
+						break
+					endif
+				endif
+			endfor
+			
+			return nComplexity;
+		endprocedure
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/plugins/metrics/python/lexer.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $lexer()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-13, um 08:54:02 *#
+		
+		##! \procedure lexer
+		##! This procedure implements a Python-specific lexer used by the !!metrics!! plugin to read and
+		##! parse Python files.
+		##!
+		##! \param _calltree()&  Target calltree table
+		##! \param _metrics()&  Target metrics table
+		##! \param _folders{}  List of folders to search files in
+		##! \param _functionlist{}  List containing fully qualified function names.
+		##! \param _functions{}  List with only the function names (without the corresponding namespaces).
+		##! \return {STR}  The list of evaluated code units including their metrics in tabular fashion.
+		procedure $lexer(_calltree()&, _metrics()&, _folders{}, _functionlist{}, _functions{}) :: mask explicit
+			var fCommentDensity, nCyclomaticComplexity, nLinesOfCode, nLinesTotal, nFunctionCounter = 1
+			str sFunction, sFile, sDrive, sNameSpace, sExt, sClassName = ""
+			cst fcontents{}, fcontents_comments{}, files{}, metricsresult{}
+			## File headline
+			metricsresult{} = "Function\tlinesTotal\tlinesCode\tCommentPercentage\tComplexity";
+			
+			## Cycle through the generated list
+			for (i = 1:num(_folders{}))
+				## Get all m-files in the current folder
+				files{} = getfilelist(_folders{i} + "/*.py", true);
+				
+				## Do nothing, if the current folder is empty
+				if (!num(files{}))
+					continue
+				endif
+				
+				print "Evaluating folder " + #i + "/" + #num(_folders{}) + ": \"" + _folders{i} + "\" ..."
+				
+				## Go through all files in the current folder
+				for (j = 1:num(files{}))
+					{sDrive, sNameSpace, sFile, sExt} = getfileparts(files{j});
+					progress j - 1 -set first=0 last=num(files{}) type="   <bar>  Evaluating file: \"" + sFile + ".py\" ..."
+					
+					## Replace all package path parts with scope operators
+					sNameSpace = replaceall(sNameSpace, "/", "::") + "::" + sFile;
+					sFunction = "";
+					sClassName = "";
+					
+					## Open the current file and read the contents
+					fcontents{} = read files{j} -set comments={"#", "\"\"\"", "\"\"\""}; ## reads only lines with code content
+					fcontents_comments{} = read files{j}; ## reads every non-empty line
+					
+					## Filter out imports
+					fcontents{locate(fcontents{}, "import ", 2)} = "";
+					fcontents{locate(fcontents{}, "from ", 2)} = "";
+					
+					fcontents_comments{locate(fcontents_comments{}, "import ", 2)} = "";
+					fcontents_comments{locate(fcontents_comments{}, "from ", 2)} = "";
+					
+					## Empty files do not need an evaluation
+					if (!num(fcontents{}))
+						warn "File is empty: " + files{j}
+						continue
+					endif
+					
+					## Find the first non-empty line
+					fcontents{} = fcontents{logtoidx(str_not_match(" \t", fcontents{}))};
+					fcontents_comments{} = fcontents_comments{logtoidx(str_not_match(" \t", fcontents_comments{}))};
+					
+					## measure all functions in the file
+					while (num(fcontents{}) && num(fcontents_comments{}))
+						{sFunction, nLinesTotal, nLinesOfCode, fCommentDensity, nCyclomaticComplexity} = $this~measureFunction(fcontents{}, fcontents_comments{}, _calltree(), _functionlist{}, _functions{}, nFunctionCounter, sFile + ".py", sClassName);
+						_metrics(num(_metrics(:, 1))+1, :) = {sNameSpace + "::" + sFunction.sub(1, sFunction.fnd("\t")-1), nLinesTotal, nLinesOfCode, fCommentDensity, nCyclomaticComplexity};
+						
+						if (!sFunction.fnd("class properties "))
+							metricsresult{nFunctionCounter} = sNameSpace + "::" + sFunction;
+							nFunctionCounter++;
+						endif
+					endwhile
+				endfor
+				
+				progress 100 -set type="   <bar>  Folder finished."
+			endfor -mask
+			
+			return metricsresult{};
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/plugins/metrics/python/measureFunction.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROCEDURE: $measureFunction()
+		* ============================================================================================
+		* Generated: 2018-08-06, at 10:59:00 *#
+		
+		##! \procedure measureFunction
+		##! Procedure for measuring the metrics of a single Python function. Will remove the already 
+		##! measured functions from the both passed file contents clusters.
+		##!
+		##! \param _fcontents{}&  The file contents without empty lines and comments.
+		##! \param _fcontents_comments{}&  The file contents without empty lines but with comments.
+		##! \param _calltree()&  Target calltree table
+		##! \param _functionlist{}  List containing fully qualified function names.
+		##! \param _functions{}  List with only the function names (without the corresponding namespaces).
+		##! \param _nFunctionCounter  Function counter variable.
+		##! \param _sFileName  Name of the current file as function name fallback (Function is a script).
+		##! \param _sClassName&  Name of the current class if previously specified
+		##! \return STR  Function name with the metrics as a table row
+		##! \return VAL  Lines total (with comments)
+		##! \return VAL  Lines of code
+		##! \return VAL  Comment density
+		##! \return VAL  Cyclomatic complexity
+		procedure $measureFunction(_fcontents{}&, _fcontents_comments{}&, _calltree()&, _functionlist{}, _functions{}, _nFunctionCounter, _sFileName, _sClassName&) :: mask explicit private
+			var nLinesOfCode = 0, nLinesTotal = 0, nCodeComments = 0, nEmptyLines = 0, nComplexity = 1, bIsClassdef = false, bUseFunctionFile = num(_functions{})
+			str sFunction, sNameSpace = _sFileName.sub(1, _sFileName.len-2), sClassName = ""
+			tab currentMatches()
+			
+			namespace thisfile
+			
+			## Extract the function name
+			{bIsClassdef, sFunction, sClassName} = $extractFunctionName(_fcontents{1}, _sFileName);
+			
+			if (sClassName.len)
+				_sClassName = sClassName;
+			endif
+			
+			if (_sClassName.len)
+				sFunction = _sClassName + "::" + sFunction;
+			endif
+			
+			## Calculate the LOC
+			for (i = 2:num(_fcontents{}))
+				## If the current line contains the "function" keyword,
+				## leave the current loop and return the start of the
+				## next function
+				if (substr(_fcontents{i}, str_not_match(" \t", _fcontents{i}), 4) == "def " || substr(_fcontents{i}, str_not_match(" \t", _fcontents{i}), 6) == "class ")
+					_fcontents{} = _fcontents{i:nlen};
+					nLinesOfCode = i - 1 - nEmptyLines;
+					break
+				endif
+				
+				## Ignore empty lines
+				if (!str_not_match(" \t", _fcontents{i}))
+					nEmptyLines++;
+				endif
+				
+				## If there's a function file, try to detect calls
+				## to the functions available in the function file
+				if (bUseFunctionFile && !bIsClassdef)
+					currentMatches(:, 1) = findtoken(_fcontents{i}, _functions{}, " .()+-*/[]{}^=<>~:&|';,\ \t@") != 0;
+					_calltree(_nFunctionCounter, :) += currentMatches(:, 1);
+				endif
+				
+				## Summarize the complexity of the file 
+				if (!bIsClassdef)
+					nComplexity = nComplexity + $calcComplexity(_fcontents{i});
+				endif
+				
+				if (i == num(_fcontents{}))
+					_fcontents{} = "";
+					break;
+				endif
+			endfor
+			
+			## Fallback
+			if (!nLinesOfCode)
+				nLinesOfCode = num(_fcontents{}) - nEmptyLines;
+			endif
+			
+			nEmptyLines = 0;
+			
+			## Calculate the total number of non-empty lines
+			for (i = 2:num(_fcontents_comments{}))
+				if (substr(_fcontents_comments{i}, str_not_match(" \t", _fcontents_comments{i}), 4) == "def " || substr(_fcontents_comments{i}, str_not_match(" \t", _fcontents_comments{i}), 6) == "class ")
+					_fcontents_comments{} = _fcontents_comments{i:nlen};
+					nLinesTotal = i - 1 - nEmptyLines;
+					break
+				endif
+				
+				if (strfnd("#", _fcontents_comments{i}))
+					nCodeComments++;
+				endif
+				
+				if (!str_not_match(" \t", _fcontents_comments{i}))
+					nEmptyLines++;
+				endif
+				
+				if (i == num(_fcontents_comments{}))
+					_fcontents_comments{} = "";
+					break;
+				endif
+			endfor
+			
+			## Fallback
+			if (!nLinesTotal)
+				nLinesTotal = num(_fcontents_comments{}) - nEmptyLines;
+			endif
+			
+			## Output
+			##_metrics(nIdx, :) = nLinesTotal, nLinesOfCode, (nLinesOfCode > 0 ? nCodeComments/nLinesOfCode*100 : nan), nComplexity;
+			sFunction += "\t" + #nLinesTotal + "\t" + #nLinesOfCode + "\t" + replaceall(#(nCodeComments/nLinesOfCode*100), ".", ",") + "\t" + #nComplexity;
+			
+			## Return function name and new starting indices
+			return {sFunction, nLinesTotal, nLinesOfCode, (nLinesOfCode > 0 ? nCodeComments/nLinesOfCode*100 : nan), nComplexity};
+		endprocedure
+		
+		#**End of the procedure
+		* NumeRe: Framework für Numerische Rechnungen | Free numerical software licenced under GNU GPL v3
+		* https://sites.google.com/site/numereframework/
+		**********************************************************************************************#
+		
+		
+		##! \procedure extractFunctionName
+		##! Extracts the function name of the current examined
+		##! function and determines, if it is a class definition 
+		##! header.
+		##!
+		##! \param _sFirstCodeLine  First line in the file, 
+		##! which contains either !!"function"!! or !!"classdef"!!.
+		##! \param _sFileName  File name as fallback (Function is a script).
+		##! \return LOG  Logical value indicating, whether this is a class definition.
+		##! \return STR  The function name
+		##! \return STR  The class name
+		procedure $extractFunctionName(_sFirstCodeLine, _sFileName)
+			var bIsClassdef = false;
+			str sFunction = "", sClassName = ""
+			
+			if (_sFirstCodeLine.fnd("def "))
+				sFunction = _sFirstCodeLine.sub(_sFirstCodeLine.fnd("def ")+4);
+			elseif (_sFirstCodeLine.fnd("class "))
+				bIsClassdef = true;
+				sFunction = "class properties " + _sFileName;
+				sClassName = _sFirstCodeLine.sub(_sFirstCodeLine.fnd("class ")+6);
+			else
+				sFunction = _sFileName;
+			endif
+			
+			## Isolate the function name
+			if (sFunction.fnd(":"))
+				sFunction = sFunction.sub(1, sFunction.fnd(":")-1);
+			endif
+			
+			if (sClassName.fnd(":"))
+				sClassName = sClassName.sub(1, sClassName.fnd(":")-1);
+			endif
+			
+			if (sFunction.fnd("("))
+				sFunction = sFunction.sub(1, sFunction.fnd("(")) + ")";
+			elseif (!bIsClassdef)
+				sFunction += "()";
+			endif
+			
+			## Strip all spaces
+			sFunction = $tools~strings~strip(sFunction);
+			sClassName = $tools~strings~strip(sClassName);
+			
+			## Die Rückgabeliste enthält Variablen, die an späterer Stelle im Code gefunden wurden.
+			return {bIsClassdef, sFunction, sClassName};
+		endprocedure
+		
+		
+		
+		##! \procedure calcComplexity
+		##! Procedure for calculating the complexity of a single line. The return value
+		##! of this procedure has to be added to the result of the previous lines.
+		##!
+		##! \param _sLine  The current code line.
+		##! \return VAL  The cyclomatic complexity of this line
+		procedure $calcComplexity(_sLine) :: explicit
+			var nComplexity = 0, nStartPos
+			str sLine = _sLine
+			
+			nStartPos = sLine.nmtch(" \t");
+			
+			if (!nStartPos)
+				return 0;
+			endif
+			
+			## Look for flow control statements
+			if (sLine.sub(nStartPos, 3) == "if " || sLine.sub(nStartPos, 5) == "elif " || sLine.sub(nStartPos, 4) == "for " || sLine.sub(nStartPos, 4) == "try ")
+				nComplexity = 1;
+			endif
+			
+			## Count the logical operators in the current line
+			for (i = nStartPos:sLine.len)
+				if (sLine.sub(i, 4) == " or " || sLine.sub(i, 5) == " and ")
+					nComplexity++;
+				endif
+			endfor
+			
+			return nComplexity;
+		endprocedure
+		
+		
+		
+		
+	<endfile>
+
+	<helpfile>
+		<article id="plgn_code_metrics">
+			<title string="Code metrics" idxkey="metrics" />
+			<keywords>
+				<keyword>metrics</keyword>
+				<keyword>metrik</keyword>
+				<keyword>mcgabe</keyword>
+				<keyword>cyclo</keyword>
+				<keyword>complexity</keyword>
+			</keywords>
+			<contents>
+				The <code>metrics</code> command allows to calculate code metrics of all files from the specified directory:<codeblock>metrics "PATH/TO/FILES"</codeblock>This will search the entire contents of the specified directory for known file types and create a list of files to analyze. At the moment the following languages are supported:
+					<list>
+						<item node="MATLAB">Represented by <code>*.m</code> files. Packages and classes (even in the old <code>@classname</code> folder structure) are also recognized and parsed accordingly.</item>.
+					</list>
+					The first run of the command already generates the metrics, as well as a list of all detected functions. This list is generated on the second run to create a so-called <em>call tree</em>, which represents the dependencies of the individual functions. Creating this tree takes significantly more time than calculating the simple metrics. Once the calculation is complete, a graphical representation is created from the determined data using <em>GraphViz</em> (or <code>dot.exe</code>), which must be installed for this purpose.
+					</contents>
+				</article>
+			</helpfile>
+
+			return;
+		<endinstall>
+
+		warn "Dies ist ein Installations-Script. Um die enthaltenen Prozeduren zu installieren, muss es mit 'install \"<this>/plgn_code_metrics\"' ausgeführt werden."
+
+
+#**Ende der Datei
+ * NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+ * https://www.numere.org/
+ **************************************************************************************************#

@@ -1,0 +1,12 @@
+{
+	"author": "Erik Hänel",
+	"changelog": "2025-11-06 v0.0.3\n  + Added SQLite type affinities to stored tables to preserve types\n\n2025-11-06 v0.0.2\n  c Corrections for empty cells\n  + Adds meta tables to saved tables with types and units\n  + Renaming and deletion considers meta tables\n\n2025-11-05 v0.0.1\n  Initial version\n  + Added support for SQLite",
+	"description": "Provides an abstract interface to databases to make them usable without the extensive need of SQL syntax.",
+	"keywords": "database,sql,sqlite",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "Database",
+	"requirements": {
+		"version": "1.1.7.2508"
+	}
+}

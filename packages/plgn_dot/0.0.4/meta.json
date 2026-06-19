@@ -1,0 +1,13 @@
+{
+	"author": "Erik Hänel",
+	"changelog": "2022-12-30 v0.0.4:\n  + Added keywords\n  + Added changeslog",
+	"description": "This plugin enables a direct call to Graphviz' \"dot.exe\" to draw directional graphs from Dot files. The common use case is to combine it with the dependency viewer, which may create such a file.",
+	"keywords": "Dot,GraphViz,Dependency,Graphs,Directed",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "Dot",
+	"requirements": {
+		"packages": "pkg_file_tools",
+		"version": "1.1.4"
+	}
+}

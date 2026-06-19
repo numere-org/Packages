@@ -1,0 +1,12 @@
+{
+	"author": "Erik Hänel",
+	"changelog": "2025-03-28 v0.0.4\n  c Changed code to work with v1.1.7.2504\n2022-12-30 v0.0.3:\n  + Added keywords\n  + Added changeslog\n  + Added $geometry~polygon~fromCircle() conversion procedure",
+	"description": "This package provides functionalities to handle geometric problems. Currently, only polygons are supported, but the functionality will be extended in the future. You are encouraged to provide your own solutions to this package.",
+	"keywords": "Geometry,Polygon,Circle,Calculation",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "Geometry",
+	"requirements": {
+		"version": "1.1.7.2412"
+	}
+}
