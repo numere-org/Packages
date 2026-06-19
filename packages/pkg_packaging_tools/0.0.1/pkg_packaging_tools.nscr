@@ -1,0 +1,168 @@
+#***************************************************************************************************
+ * SCRIPTNAME: pkg_packaging_tools 
+ * =================================================================================================
+ * Hinzugefügt: 2026-06-19, um 15:00:04 *#
+
+##~ Füge hier deine Kommandos und Ausdrücke ein.
+<install>
+	<info>
+		-name="Packaging Tools"
+		-author="Erik Hänel"
+		-version="0.0.1"
+		-type=TYPE_PACKAGE
+		-license="Apache-2.0"
+		-desc="Provides tools to simplify the release process to the official repository during the package creation."
+		-keywords="Release, Package, Repository"
+		-changelog="2026-06-10 v0.0.1: Initial version\n  - Provides a procedure for manifest cration\n  - Provides a procedure for copying a package to the correct folder structure"
+		-flags=ENABLE_DEFAULTS
+		-requireversion="1.1.8.2605"
+	<endinfo>
+
+	<file name="<procpath>/packaging/prepareRelease.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $prepareRelease()
+		* =================================================================================================
+		* HinzugefÃ¼gt: 2026-06-19, um 13:57:41 *#
+		
+		##! \procedure prepareRelease
+		##! Prepares a package release by copying the package file to the correct folder in the package 
+		##! repository and by creating the necessary manifest meta.json
+		##!
+		##! \param _sPackageFile  The package file path (from where it shall be copied)
+		##! \param _sRepoRoot  The repository root folder, where your fork lives in (to where the package 
+		##! shall by copied to)
+		##! \return STR  The package path in the repository
+		procedure $prepareRelease(_sPackageFile, _sRepoRoot) :: explicit mask
+			str sFileContents, sVersion, sFileParts = getfileparts(_sPackageFile), sReleasePath
+			var nInfoSection
+			
+			## Check, whether the filetype is fitting
+			if (sFileParts[4] != "nscr")
+				throw "The to-be-released file \"" + _sPackageFile + "\" does not have the correct file type."
+			endif
+			
+			## Ensure that the repository root points to a reasonable directory
+			if (!findfile("README.md", _sRepoRoot) || !locate(getfolderlist(_sRepoRoot), "packages"))
+				throw "The repository root does not seem to be correct folder. Please ensure that it points to the folder, where the folder \"packages\" is located."
+			endif
+			
+			## Read the contents of the package file and identify the info section
+			sFileContents = read _sPackageFile -set comments={"##", "#*", "*#"};
+			nInfoSection = locate(sFileContents, {"<info>", "<endinfo>"}, 4);
+			
+			## Extract the info section as a joined string (makes it easier to extract things)
+			sFileContents = strjoin(sFileContents[nInfoSection[1]:nInfoSection[2]], " ");
+			
+			## Get the file version
+			sVersion = getopt(sFileContents, findparam("version", sFileContents, "=") + 7 + 1);
+			
+			## Make a quick check for non-utf8-encodings
+			if (sVersion.nmtch("0123456789."))
+				throw "Something is wrong with the package file. Probably the file encoding is incorrect."
+			endif
+			
+			## Create the release path
+			sReleasePath = _sRepoRoot + "/packages/" + sFileParts[3] + "/" + sVersion + "/";
+			
+			## Copy the package file
+			copy _sPackageFile -target=sReleasePath + "*"
+			
+			## Create the necessary manifest file
+			$this~createMeta(sReleasePath + sFileParts[3] + "." + sFileParts[4]);
+			
+			## Return the deployed path
+			return sReleasePath;
+		endprocedure
+		
+		##~ ErgÃ¤nze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework fÃ¼r Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/packaging/createMeta.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $createMeta()
+		* =================================================================================================
+		* HinzugefÃ¼gt: 2026-06-19, um 13:07:27 *#
+		
+		##! \procedure createMeta
+		##! Creates the meta.json manifest file for the respective package file.
+		##! \remark The meta.json file is created in the same directory and will overwrite existing ones.
+		##!
+		##! \param _sPackageFile  The file path to the package file
+		procedure $createMeta(_sPackageFile) :: explicit mask
+			obj oPath = path(_sPackageFile), oMeta = dictstruct("manifest-version", "1.0.0")
+			str sFileContents
+			var nInfoSection, nPos
+			
+			## Read the contents of the package file and identify the info section
+			sFileContents = read _sPackageFile -set comments={"##", "#*", "*#"};
+			nInfoSection = locate(sFileContents, {"<info>", "<endinfo>"}, 4);
+			
+			## Extract the info section as a joined string (makes it easier to extract things)
+			sFileContents = strjoin(sFileContents[nInfoSection[1]:nInfoSection[2]], " ");
+			
+			## Extract major parameters
+			$thisfile~extractField(oMeta, sFileContents, "name", "name");
+			$thisfile~extractField(oMeta, sFileContents, "author", "author");
+			$thisfile~extractField(oMeta, sFileContents, "license", "license");
+			$thisfile~extractField(oMeta, sFileContents, "description", "desc");
+			$thisfile~extractField(oMeta, sFileContents, "keywords", "keywords");
+			$thisfile~extractField(oMeta, sFileContents, "changelog", "changelog");
+			
+			## The requirements are nested and will therefore be extracted differently
+			if (nPos = findparam("requireversion", sFileContents, "="))
+				oMeta.insertkey("requirements" / "version", getopt(sFileContents, nPos+14+1));
+			endif
+			
+			if (nPos = findparam("requirepackages", sFileContents, "="))
+				oMeta.insertkey("requirements" / "packages", getopt(sFileContents, nPos+15+1));
+			endif
+			
+			## Format the resulting dictstruct as JSON and save it to the target file
+			write oMeta.encodejson(true) -set file=oPath.leafless.format("/") + "/meta.json"
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure extractField
+		##! Extracts the data from a single field.
+		##!
+		##! \param _oMeta&  The target meta dictstruct
+		##! \param _sFileContents&  The info section of the package file
+		##! \param _sMetaName  The field name in the meta dictstruct
+		##! \param _sInstallerName  The field name in the package file
+		procedure $extractField(_oMeta&, _sFileContents&, _sMetaName, _sInstallerName) :: explicit mask inline
+			var nPos
+			
+			if (nPos = findparam(_sInstallerName, _sFileContents, "="))
+				_oMeta.insertkey(_sMetaName, replaceall(replaceall(getopt(_sFileContents, nPos+_sInstallerName.len+1), "\ \"", "\"" ), "\\n", "\n"));
+			endif
+			
+			return void;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework fÃ¼r Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	return;
+<endinstall>
+
+warn "Dies ist ein Installations-Script. Um die enthaltenen Prozeduren zu installieren, muss es mit 'install \"<this>/pkg_packaging_tools\"' ausgeführt werden."
+
+
+#**Ende der Datei
+ * NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+ * https://www.numere.org/
+ **************************************************************************************************#

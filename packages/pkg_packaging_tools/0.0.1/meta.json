@@ -1,0 +1,12 @@
+{
+	"author": "Erik Hänel",
+	"changelog": "2026-06-10 v0.0.1: Initial version\n  - Provides a procedure for manifest cration\n  - Provides a procedure for copying a package to the correct folder structure",
+	"description": "Provides tools to simplify the release process to the official repository during the package creation.",
+	"keywords": "Release, Package, Repository",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "Packaging Tools",
+	"requirements": {
+		"version": "1.1.8.2605"
+	}
+}

@@ -7,7 +7,7 @@ Because we want to ensure that all contributions are safe and have some kind of 
 
 1. Fork this repository if you haven't already, otherwise sync your fork so that the main branch is up-to-date
 2. Create a branch within your fork, i.e. `add_pkg_XYZ`
-3. Push your package to your fork. Ensure that the folder structure is correct. We provide a dedicated package `pkg_packaging_tools` to simplify this process.
+3. Push your package to your fork. Ensure that the folder structure is correct, i.e. `packages/pkg_XYZ/x.y.z/pkg_XYZ.nscr` with `x.y.z` referencing the version number of your package. We provide a dedicated package `pkg_packaging_tools` to simplify this process.
 4. Create a pull request within this repository with which you intend to merge your branch
 5. Respond to feedback
 6. Smile, once the pull request is accepted and the package is available in the official repository (it may take up to 10min until NumeRe finds the new package)
