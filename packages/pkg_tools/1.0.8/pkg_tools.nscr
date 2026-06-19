@@ -1,0 +1,2040 @@
+#***************************************************************************************************
+ * SCRIPTNAME: pkg_tools 
+ * =================================================================================================
+ * Hinzugefügt: 2025-04-02, um 06:46:17 *#
+
+##~ Füge hier deine Kommandos und Ausdrücke ein.
+<install>
+	<info>
+		-name="Tools"
+		-author="Erik Hänel"
+		-version="1.0.8"
+		-type=TYPE_PACKAGE
+		-license="Apache-2.0"
+		-desc="This package provides basic procedures via the \"tools\" namespace, which will enhance and simplify the workflow in many cases. This package also provides multiple sub-namespaces containing functionalities for special cases."
+		-keywords="Tools,Utils,Helpers,GUI,Strings,Structures,Grids"
+		-changelog="2025-03-28 v1.0.8:\n  c Changed code to cope with new v1.1.7.2504\n  + Modernized some solutions to speed up calculation\n2023-01-17 v1.0.7:\n  + Added missing procedure $tools~getLatestVersion()\n  + Added missing procedure $tools~strings~createColumns()\n2022-12-30 v1.0.6:\n  + Added keywords\n  + Added changeslog"
+		-flags=DISABLE_SCREEN_OUTPUT
+		-requireversion="1.1.7.2412"
+	<endinfo>
+
+	<file name="<procpath>/tools/extractTableParams.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $extractTableParams()
+		* ============================================================================================
+		* HinzugefÃ¼gt: 2021-05-01, um 15:32:07 *#
+		
+		##! \procedure extractTableParams
+		##! This procedure returns the name of the passed table access string !!sTable!!
+		##! and the corresponding table indices as !!{sName,i1,i2,j1,j2}!!. The possible
+		##! values of the second parameter !!nType!! may be looked up in the description
+		##! of the function !!getindices()!!.
+		##!
+		##! \param _sTable  (!!=""!!) A table access string like !!table(i,j)!!
+		##! \param _nType  (!!=0!!) The interpretation type used to detect the missing indices. Same meaning as the second parameter in !!getindices()!!
+		##! \return STR  The name of the table
+		##! \return VAL  First row index
+		##! \return VAL  Last row index
+		##! \return VAL  First column index
+		##! \return VAL  Last column index
+		procedure $extractTableParams(_sTable = "", _nType = 0) :: explicit
+			var i1, i2, j1, j2
+			if (!is_data(_sTable) || !_sTable.len)
+				throw "Kein Datensatz angegeben."
+			endif
+			{i1, i2, j1, j2} = getindices(_sTable, _nType);
+			_sTable =  _sTable.sub(1, _sTable.fnd("(")-1);
+			_sTable = $tools~strings~strip(_sTable);
+			return {_sTable, i1, i2, j1, j2};
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework fÃ¼r Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/getColFromTable.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $getColFromTable()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-01, um 15:32:07 *#
+		
+		##! \procedure getColFromTable
+		##! Returns the contents of the selected column !!_nCol!!
+		##! from the table !!_sTable!!, where !!_nLine0!! defines
+		##! the first and !!_nLine1!! the last row indices to be
+		##! extracted.
+		##! \remark This procedure is deprecated. Please use !!TAB().aliasof()!! instead.
+		##!
+		##! \param _sTable  (!!=""!!) Table access string like !!table(i,j)!! with or without the parentheses
+		##! \param _nCol  (!!=1!!) Selected column to be extracted
+		##! \param _nLine0  (!!=1!!) First row index to be extracted
+		##! \param _nLine1  (!!=inf!!) Last row index to be extracted
+		##! \return {VAL}  The contents of the selected column
+		procedure $getColFromTable(_sTable = "", _nCol = 1, _nLine0 = 1, _nLine1 = inf) :: explicit
+			warn "The procedure $tools~getColFromTable() is deprecated. Please use the TAB().aliasof() method instead."
+			tab localtab()
+			localtab().aliasof(_sTable);
+			return localtab(_nLine0:_nLine1, _nCol); 
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/getFoldersRecursively.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $getFoldersRecursively()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-01, um 15:32:07 *#
+		
+		##! \procedure getFoldersRecursively
+		##! This procedure will find all folders below the passed base path folder
+		##! until the specified level of recursion.
+		##!
+		##! \param _sBasePath  (!!=""!!) Base path to start the recursion from
+		##! \param _nLevel  (!!=2!!) Maximal number of recursions
+		##! \return {STR}  The detected unique folders
+		procedure $getFoldersRecursively(_sBasePath = "", _nLevel = 2) :: mask
+			if (!_sBasePath.len)
+				throw "The base path is empty."
+			endif
+			
+			str sCurrentDir
+			cst folders{}
+			folders{} = _sBasePath;
+			
+			if (_nLevel)
+				for (i = 1:_nLevel)
+					_sBasePath += "/*";
+					sCurrentDir = getfolderlist(_sBasePath, true);
+					
+					if (num(sCurrentDir))
+						folders{nlen+1:} = sCurrentDir;
+					endif
+				endfor -mask
+			endif
+			
+			folders{} = folders{logtoidx(!endswith(folders{}, "/..") && !endswith(folders{}, "/."))};
+			sort folders{}
+			
+			return folders{};
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/getLineFromTable.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $getLineFromTable()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-01, um 15:32:07 *#
+		
+		##! \procedure getLineFromTable
+		##! Returns the contents of the selected line !!_nLine!!
+		##! from the table !!_sTable!!, where !!_nCol0!! defines
+		##! the first and !!_nCol1!! the last column indices to be
+		##! extracted.
+		##! \remark This procedure is deprecated. Please use !!TAB().aliasof()!! instead.
+		##!
+		##! \param _sTable  (!!=""!!) Table access string like !!table(i,j)!! with or without the parentheses
+		##! \param _nLine  (!!=1!!) Selected row to be extracted
+		##! \param _nCol0  (!!=1!!) First column index to be extracted
+		##! \param _ncol1  (!!=inf!!) Last column index to be extracted
+		##! \return {VAL}  The contents of the selected row
+		procedure $getLineFromTable(_sTable = "", _nLine = 1, _nCol0 = 1, _nCol1 = inf) :: explicit
+			warn "The procedure $tools~getLineFromTable() is deprecated. Please use the TAB().aliasof() method instead."
+			tab localtab()
+			localtab().aliasof(_sTable);
+			return localtab(_nLine, _nCol0:_nCol1);
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/getNextArgument.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $getNextArgument()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-01, um 15:32:07 *#
+		
+		##! \procedure getNextArgument
+		##! This procedure extracts the next argument from the passed argument list
+		##! !!sArgList!!. Per call to this procedure the current first element of
+		##! the list is extracted and returned as !!{sElement, sArgList}!! with
+		##! !!sArgList!! being shortened by the extracted element.
+		##!
+		##! \param _sArgList  (!!=""!!) Argument list to extract the next argument from
+		##! \return STR  The next argument
+		##! \return STR  The remaining part of the list
+		procedure $getNextArgument(_sArgList = "") :: explicit
+			str sArgument
+			
+			## Return an empty string, if an empty string was passed
+			if (!_sArgList.len)
+				return {"", ""};
+			endif
+			
+			## Try to find the end of the current argument
+			for (i = 1:_sArgList.len)
+				if (_sArgList.at(i) == ",")
+					## This is a argument separator
+					sArgument = _sArgList.sub(1, i-1), _sArgList = _sArgList.sub(i+1);
+					break
+				elseif (or(_sArgList.at(i) == {"(", "[", "{"}))
+					## Jump over parentheses
+					i += getmatchingparens(_sArgList.sub(i)) - 1;
+				endif
+			endfor -mask
+			
+			## If we did not find any comma, we only have a single argument
+			if (!sArgument.len && _sArgList.len)
+				return {_sArgList, sArgument};
+			endif
+			
+			return {sArgument, _sArgList};
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/stripSpaces.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $stripSpaces()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-01, um 15:32:07 *#
+		
+		##! \procedure stripSpaces
+		##! This procedure removes leading and trailing whitespaces and tabulator
+		##! characters from the passed string !!sString!!.
+		##! \remark This procedure is deprecated. Please use !!$tools~strings~strip()!! instead.
+		##!
+		##! \param _sString  (!!=""!!) String to strip whitespaces from
+		##! \return STR  The stripped string
+		procedure $stripSpaces(_sString = "") :: explicit
+			warn "The procedure $tools~stripSpaces() is deprecated. Please use $tools~strings~strip() instead."
+			return $tools~strings~strip(_sString);
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/gui/gridLocator.nlyt">
+		#**********************************************************************************************
+		* WINDOW-LAYOUT: gridLocator 
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-04, um 21:58:56 *#
+		
+		##! \layout gridLocator
+		##! Creates a simple grapher window with an onclick event handler aggregating located points 
+		##! in the displayed map
+		layout -title="NumeRe: Grid Locator" size={800,800}
+			grapher -set id=0 size={750,750} onclick=$this~gridLocatorEvent()
+			prop sMapName = "", sStorage = "", nPoints = 0
+		endlayout
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/gui/gridLocatorEvent.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $gridLocatorEvent()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-04, um 22:00:39 *#
+		
+		##! \procedure gridLocatorEvent
+		##! Event handler procedure for the gridLocator window layout. Gets called, when the user
+		##! clicks on a location in the displayed grapher object. Gets the coordinates, transforms
+		##! them to the closest grid coordinates and adds marks at the corresponding positions.
+		##!
+		##! \param _nWinId  The window Id of the current gridLocator window
+		##! \param _nItemId  The item Id of the grapher object
+		##! \param _event{}  Additional event information as key-val list
+		procedure $gridLocatorEvent(_nWinId, _nItemId, _event{}) :: event
+			str sName = "", sLocationsStorage = ""
+			var nLocatedPoints = 0
+			tab localMap(), localLocations(), points()
+			cst coords{}, size{}
+			
+			sName = window _nWinId -get value prop= "sMapName";
+			sLocationsStorage = window _nWinId -get value prop= "sStorage";
+			nLocatedPoints = window _nWinId -get value prop= "nPoints";
+			
+			localMap().aliasof(sName);
+			localLocations().aliasof(sLocationsStorage);
+			
+			## get coords
+			coords{} = getkeyval(_event{}, "value", 0, true);
+			
+			## Convert to grid coords
+			matop coords{} = rint(coordstogrid(localMap(:, 1:2), transpose(coords{})));
+			size{} = localMap().size;
+			
+			## Ensure that we're in the map
+			if (or(coords{} < 1) || or(coords{} > size{}))
+				return void;
+			endif
+			
+			## Store the found coordinates
+			localLocations(nlines+1, :) = coords{};
+			
+			## Get the corresponding x-y coords
+			points(:, 1) = localMap(localLocations(:, 1), 1);
+			points(:, 2) = localMap(localLocations(:, 2), 2);
+			points(:, 3) = points(:, 1) * 0 + localMap().avg.grid;
+			
+			## Re-Plot the data grid with the found points
+			compose 
+				dens localMap() -set noalpha box aspect=1 streamto={_nWinId, 0} rotate=0,0
+				plot3d points() "Located points [" + #num(localLocations(:, 1)) + "/" + #nLocatedPoints + "]" -set connect
+			endcompose
+			
+			## Close the window after enough locations had been performed
+			if (num(localLocations(:, 1)) >= nLocatedPoints)
+				dialog "All needed points were located" -set type=messagebox icon=infoicon buttons=ok title="NumeRe: Grid Locator";
+				return window _nWinId -close;
+			endif
+			
+			return void;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/gui/gridPainter.nlyt">
+		#**********************************************************************************************
+		* WINDOW-LAYOUT: gridPainter 
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-03, um 09:46:26 *#
+		
+		##! \layout gridPainter
+		##! Window containing a grapher displaying a map and a !!onclick!! event handler firing every 
+		##! time the user clicks in the map.
+		layout -title="NumeRe: Grid Painter" size={800,800}
+			grapher -set id=0 size={750,750} onclick=$this~gridPainterEvent()
+			group -type=horizontal
+				dropdown "Square - Set value", "Square - Add value", "Gauss - Add value" -set id=3 value=1
+				textfield "0.0" -set id=1 size={50,-1}
+				statictext "Paint value" -set align="LC"
+				spinbut -set label="Brush size" min=1 max=10 value=2 id=2
+			endgroup
+			prop sMapName = ""
+		endlayout
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/gui/gridPainterEvent.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $gridPainterEvent()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-03, um 09:57:07 *#
+		
+		##! \procedure gridPainterEvent
+		##! Map Painter window event handler, which is called, when the user clicks in the displayed
+		##! grapher object. Will then extract the coordinates and painting parameters and add a "dot"
+		##! of the selected size at the extracted coordinates.
+		##!
+		##! \param _nWinId  Current window ID
+		##! \param _nItemId  The ID of the firing UI element
+		##! \param _event{}  Key-value list containing additional event information
+		procedure $gridPainterEvent(_nWinId, _nItemId, _event{}) :: event
+			##~ Füge hier deine Kommandos und Ausdrücke ein.
+			var nBrushSize, fBrushValue
+			str sName, sVal, sOperation
+			tab localMap(), gaussMat()
+			cst coords{}, size{}
+			
+			## Get the window parameters
+			nBrushSize = window _nWinId -get value item=2;
+			nBrushSize -= 1;
+			sVal = window _nWinId -get value item=1;
+			fBrushValue = to_value(sVal);
+			sName = window _nWinId -get value prop="sMapName";
+			sOperation = window _nWinId -get value item=3;
+			
+			## Reference the global map
+			localMap().aliasof(sName);
+			
+			## get coords
+			sVal = getkeyval(_event{}, "value", "{0,0}", true);
+			coords{} = to_value(sVal);
+			
+			## Convert to grid coords
+			matop coords{} = rint(coordstogrid(localMap(:,1:2), transpose(coords{})));
+			size{} = localMap().size;
+			
+			## Ensure that we're in the map
+			if (or(coords{} < 1+nBrushSize) || or(coords{}+nBrushSize > size{}))
+				return void;
+			endif
+			
+			## Compensate for the two axis columns
+			coords{2} += 2;
+			
+			## Apply the selected operation
+			switch (sOperation)
+			case "Square - Set value":
+				matop localMap(coords{1}-nBrushSize:coords{1}+nBrushSize, coords{2}-nBrushSize:coords{2}+nBrushSize) = fBrushValue * one(1+2*nBrushSize);
+				break;
+			case "Square - Add value":
+				matop localMap(coords{1}-nBrushSize:coords{1}+nBrushSize, coords{2}-nBrushSize:coords{2}+nBrushSize) += fBrushValue * one(1+2*nBrushSize);
+				break;
+			case "Gauss - Add value":
+				datagrid exp(-norm(x,y)^2/2) -set [-2:2,-2:2] samples=1+2*nBrushSize target=gaussMat()
+				matop localMap(coords{1}-nBrushSize:coords{1}+nBrushSize, coords{2}-nBrushSize:coords{2}+nBrushSize) += fBrushValue * gaussMat(:,3:);
+				break;
+			endswitch
+			
+			## Re-Plot the data grid
+			dens localMap() -set aspect=1 streamto={_nWinId, 0} box
+			
+			return void;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/gui/keyval.nlyt">
+		#**********************************************************************************************
+		* WINDOW-LAYOUT: keyval 
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-02, um 13:59:10 *#
+		
+		##! \layout Key-Value List Browser
+		##!
+		##! Provides a graphical interface to visualize a key-value list in a human-readable
+		##! fashion.
+		layout -title="NumeRe: Key-Value List Browser" size={400,250}
+			##~ Füge hier die Kommandos für Dein gewünschtes Layout ein.
+			treelist -set label={"Key", "Value"} id=0
+			button "Close" -set onclick=evt_close() align="C"
+		endlayout
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/gui/keyValBrowser.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $keyValBrowser()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-02, um 14:05:33 *#
+		
+		##! \procedure keyValBrowser
+		##! Displays the passed key-value list in an external window in a human-readable from. Elements
+		##! may not be modified in this browser.
+		##!
+		##! \param _keyValList{}  Key-value list to display
+		##! \param _sCustomTitle  (!!=""!!) An optional custom window title
+		##! \return VAL  The window ID of the created browser window
+		procedure $keyValBrowser(_keyValList{}, _sCustomTitle = "")
+			##~ Füge hier deine Kommandos und Ausdrücke ein.
+			var nWinId
+			cst tabularKeyValList{}
+			
+			## Transform the key-value list into tabular form
+			## (i.e. separate ky-value by tabulators)
+			tabularKeyValList{} = _keyValList{{1:2:nlen}} + "\t" + to_string(_keyValList{{2:2:nlen}});
+			
+			## Create the browser window
+			nWinId = window "<this>/keyval";
+			
+			## Add the key-value list in tabular form and 
+			## return
+			window nWinId -set value=tabularKeyValList{} item=0;
+			
+			## If the user supplied a custom title, set that here
+			if (_sCustomTitle.len)
+				window nWinId -set label=_sCustomTitle;
+			endif
+			
+			return nWinId;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/gui/openGridLocator.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $openGridLocator()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-04, um 22:23:58 *#
+		
+		##! \procedure openGridLocator
+		##! Opens up a grid locator window, references the passed global tables
+		##! and displays the passed map in the embedded grapher object.
+		##!
+		##! \param _map()&  Data grid containing a 2D map
+		##! \param _pointsStorage()&  A global table to store the located points in
+		##! \param _nLocatedPoints  (!!=1!!) The number of points, which the user shall select
+		##! \return VAL  The ID of the opened window
+		procedure $openGridLocator(_map()&, _pointsStorage()&, _nLocatedPoints = 1) :: explicit mask
+			var nWinId
+			
+			## Create the window
+			nWinId = window "<this>/gridLocator";
+			
+			## Update the internal properties
+			window nWinId -set value=to_string(_map()) prop="sMapName";
+			window nWinId -set value=to_string(_pointsStorage()) prop="sStorage";
+			window nWinId -set value=_nLocatedPoints prop="nPoints";
+			
+			## Display the passed map in the grapher
+			dens _map() -set aspect=1 box streamto={nWinId, 0} reset
+			
+			return nWinId;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/gui/openGridPainter.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $openGridPainter()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-03, um 09:58:36 *#
+		
+		##! \procedure openGridPainter
+		##! Opens up a Map Painter window and plots the passed map into it. The map is referenced via 
+		##! its name in the Map Painter window and will be overwritten by any paint action.
+		##!
+		##! \param _map()&  Map to display and reference
+		##! \return VAL  The window ID of the created Map Painter Window
+		procedure $openGridPainter(_map()&) :: explicit mask
+			var nWinId
+			
+			## Open window layout
+			nWinId = window "<this>/gridPainter";
+			
+			## Plot the map to the grapher object
+			dens _map() -set streamto={nWinId, 0} aspect=1 box reset
+			
+			## Store the map name in the internal properties
+			window nWinId -set value=to_string(_map()) prop="sMapName";
+			
+			return nWinId;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/gui/progress.nlyt">
+		##! \layout Progress
+		##!
+		##! Defines a graphical progress bar as an alternative
+		##! to the usual !!progress!! command.
+		layout -title="Progress" size={450,80} ##{400,50} for only 1 gauge
+			statictext "Current Progress:" -set id=0
+			gauge -set id=1
+			gauge -set id=2 state=hidden
+		endlayout
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/gui/progressBar.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $progressBar()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-01, um 20:03:46 *#
+		
+		##! \procedure progressBar
+		##! This procedure provides a graphical progress visualisation with one or two progress bars, a 
+		##! status text and a title, both of them are customizeable. The progress visualisation is controlled
+		##! via a key-value list containing only optional parameters. This key-value list can be used to 
+		##! set the value of one or both progress bars, to show or hide the latter one and to customize the
+		##! title as well as the status message text.
+		##!
+		##! \param _nWinId  (!!=-1!!) Window id of an existing window or !!-1!!, if a new window shall be created
+		##! \param _barState{}  (!!={"bar", 0}!!) Key-value list containing information about the displayed
+		##! window. The key-value list accepts the following keys (including their default values): 
+		##! !!"bar" = 0, "bar2" = -1, "title" = "Progress", "message" = "Current Progress", "close" = false!!.
+		##! Both !!"bar"!! and !!"bar2"!! define the values of the two progress bars, where a value of !!-1!! for
+		##! the second !!"bar2"!! will hide it.
+		##! \return VAL  Returns either the ID of the current window or the success state, when a window 
+		##! shall be closed
+		procedure $progressBar(_nWinId = -1, _barState{} = {"bar", 0}) :: explicit mask
+			## Create local vars
+			var nBar1Val = 0, nBar2Val = -1, bClose
+			str sTitle = "Progress", sMessage = "Current Progress"
+			
+			## Shall we create a new window?
+			if (_nWinId == -1)
+				_nWinId = window "<this>/progress";
+			endif
+			
+			## Get the settings for the progress bar
+			## using the user-supplied keyval list
+			{nBar1Val, nBar2Val, sTitle, sMessage, bClose} = getkeyval(_barState{:}, {"bar", "bar2", "title", "message", "close"}, {0, -1, "Progress", "Current Progress", 0});
+			
+			## Shall we close the window?
+			if (bClose)
+				return window _nWinId -close;
+			endif
+			
+			## Update the window correspondingly
+			window _nWinId -set label=sTitle;
+			window _nWinId -set value=sMessage item=0;
+			
+			## Set the value of the first progress bar
+			window _nWinId -set value=nBar1Val item=1;
+			
+			## Enable or disable the second progress bar
+			## and update its value
+			if (nBar2Val != -1)
+				window _nWinId -set state=enabled item=2;
+				window _nWinId -set value=nBar2Val item=2;
+			else
+				window _nWinId -set state=hidden item=2;
+			endif
+			
+			## Return the window id
+			return _nWinId;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/strings/camelize.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $camelize()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-01, um 22:33:45 *#
+		
+		##! \procedure camelize
+		##! This procedure converts the passed string into CamelCase using either whitespaces or
+		##! underscores as word separators.
+		##!
+		##! \param _sString  The string to convert to CamelCase
+		##! \return STR  The CamelCase string
+		procedure $camelize(_sString) :: explicit mask
+			## Create a string variable to get a tokenized list of strings
+			str sTokens
+			
+			## Convert to lowercase first, replace whitespace with underscores and tokenize the whole 
+			## string into separate strings
+			_sString = replaceall(to_lowercase(_sString), " ", "_");
+			sTokens = _sString.splt("_");
+			
+			## Convert every first character to an uppercase character
+			sTokens = to_uppercase(sTokens.at(1)) + sTokens.sub(2);
+			
+			## Return a joined version of the tokenized strings
+			return strjoin(sTokens);
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/strings/replaceAllFromList.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $replaceAllFromList()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-07, um 21:24:02 *#
+		
+		##! \procedure replaceAllFromList
+		##! Uses the passed key-value list to replace every occurence of the keys with
+		##! their corresponding values from the key-value list.
+		##! \remark This procedure is intended for arbitrary long lists and is not reasonable for cases,
+		##! where two or three chained calls to !!replaceall()!! would result in the same behavior.
+		##!
+		##! \param _stringsToReplace{}  Strings, where the occurences shall be replaced
+		##! \param _keyValToReplace{}  Key-value list, whose key occurences shall be replaced
+		##! \return {STR}  The strings after all occurences where replaced
+		procedure $replaceAllFromList(_stringsToReplace{}, _keyValToReplace{}) :: explicit mask
+			## Replace every key occurence in the string
+			## with its corresponding value
+			for ({sKey, val} -> _keyValToReplace{})
+				_stringsToReplace{} = replaceall(_stringsToReplace{}, sKey, valtostr(val));
+			endfor
+			
+			## Return the replaced string
+			return _stringsToReplace{};
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/strings/reverse.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $reverse()
+		* ============================================================================================
+		* Hinzugefügt: 2018-12-02, um 12:15:47 *#
+		
+		##! \procedure reverse
+		##! Reverts the order of the characters in the passed string.
+		##!
+		##! \param _sStr  (!!=""!!) String to revert
+		##! \return STR  The reverted string
+		procedure $reverse(_sStr = "") :: explicit mask
+			
+			if (!_sStr.len)
+				return "";
+			endif
+			
+			return sum(_sStr.at({_sStr.len:1}));
+		endprocedure
+		
+		#**Ende der Prozedur
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://sites.google.com/site/numereframework/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/strings/strip.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $strip()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-03, um 11:26:39 *#
+		
+		##! \procedure strip
+		##! Strips all surrounding occurences of the selected characters from the passed string. The
+		##! characters are only stripped, if they are leading or trailing (no internal characters are
+		##! removed).
+		##!
+		##! \param _sString  (!!=""!!) String to strip
+		##! \param _sChars  (!!=" \t"!!) Characters to be stripped from the string
+		##! \return STR  The stripped string
+		procedure $strip(_sString = "", _sChars = " \t") :: explicit
+			_sString = _sString.sub(_sString.nmtch(_sChars));
+			_sString = _sString.sub(1, _sString.nrmtch(_sChars));
+			return _sString;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/strings/wrapWords.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $wrapWords()
+		* ============================================================================================
+		* Hinzugefügt: 2018-12-09, um 10:08:47 *#
+		
+		##! \procedure wrapWords
+		##! This procedure provides word wrapping for the passed string at the desired length.
+		##!
+		##! \param _sStringToWrap  The string to be word wrapped
+		##! \param _nLength  (!!=0!!) The length of the new lines. Uses the terminal width,
+		##! if the length is zero.
+		##! \return STR  The wrapped string
+		procedure $wrapWords(_sStringToWrap, _nLength = 0) :: explicit mask
+			var nLastLineBreak = 1
+			
+			## If the entered length is zero or smaller then use the current terminal's window size for the 
+			## line length
+			if (_nLength < 1)
+				{_nLength, 0} = get -windowsize -asval;
+			endif
+			
+			## Find the points to wrap the lines
+			for (i = 1:_sStringToWrap.len)
+				## Is this already a line break?
+				if (_sStringToWrap.at(i) == "\n")
+					nLastLineBreak = i;
+				endif
+				
+				## Are we now longer than the line length?
+				if (i - nLastLineBreak >= _nLength)
+					## Find the last whitespace from here
+					nLastLineBreak = _sStringToWrap.rfnd(" ", i);
+					
+					## Replace the whitespace with a linebreak character
+					_sStringToWrap = replace(_sStringToWrap, nLastLineBreak, 1, "\n");
+				endif
+			endfor -mask
+			
+			return _sStringToWrap;
+		endprocedure
+		
+		#**Ende der Prozedur
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://sites.google.com/site/numereframework/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/structures/intersectKeyVals.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $intersectKeyVals()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-05, um 22:41:37 *#
+		
+		##! \procedure intersectKeyVals
+		##! Calculates the intersection of the two passed key-value lists, where the values from the
+		##! second list are used to fill the intersected list
+		##!
+		##! \param _keyValToIntersect{}  Key-value list to intersect the keys with
+		##! \param _keyValToInsert{}  Key-value list to use the values from
+		##! \return CST  The intersected key-value list
+		procedure $intersectKeyVals(_keyValToIntersect{}, _keyValToInsert{}) :: explicit mask
+			var nLocation
+			cst intersected{}
+			
+			## Go through the second list
+			for ({sKey, val} -> _keyValToIntersect{})
+				## Try to locate the entries of the second list in the first one
+				nLocation = locate(_keyValToInsert{{1:2:nlen}}, sKey, 0);
+				
+				## If a match is found, append the entries of the second list to the intersected list
+				if (nLocation)
+					intersected{nlen+1:} = _keyValToInsert{2*nLocation-1:2*nLocation};
+				endif
+			endfor
+			
+			## Return the intersected key-value list
+			return intersected{};
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/structures/makeKeyVals.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $makeKeyVals()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-02, um 16:22:31 *#
+		
+		##! \procedure makeKeyVals
+		##! Composes a key-value list from the two clusters !!_keys{}!! and !!_values{}!! and returns it.
+		##!
+		##! \param _keys{}  A cluster containing the keys of the key-value list
+		##! \param _values{}  A cluster containing the values of the key-value list
+		##! \return CST  The composed key-value list
+		procedure $makeKeyVals(_keys{}, _values{})
+			cst keyVal{}
+			var nLength
+			
+			## Ensure that both clusters have the same
+			## number of elements
+			if (cnt(_keys{}) != cnt(_values{}))
+				throw "makeKeyVals :: The number of elements in keys{} does not match to the number of values{}."
+			endif
+			
+			## Get the elements
+			nLength = cnt(_keys{});
+			
+			## Compose the final key-value list
+			keyVal{{1:2:2*nLength}} = _keys{};
+			keyVal{{2:2:2*nLength}} = _values{};
+			
+			return keyVal{};
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/structures/mergeKeyVals.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $mergeKeyVals()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-05, um 22:03:45 *#
+		
+		##! \procedure mergeKeyVals
+		##! Merges two key-value lists into a single one, where identical keys from the first key-value list
+		##! are overwritten by the values of the second list. Missing values are simply appended.
+		##!
+		##! \param _keyValToUpdate{}  Key-value list to be updated with the entries of the second list
+		##! \param _keyValToInsert{}  Key-value list, whose entries are inserted into the first list
+		##! \return CST  The combined key-value list
+		procedure $mergeKeyVals(_keyValToUpdate{}, _keyValToInsert{}) :: explicit mask
+			var nLocation
+			
+			## Go through the second list
+			for ({sKey, val} -> _keyValToInsert{})
+				## Try to locate the entries of the second list in the first one
+				nLocation = locate(_keyValToUpdate{{1:2:nlen}}, sKey, 0);
+				
+				## If no match is found, append the entries, otherwise simply 
+				## overwrite them
+				if (!nLocation)
+					_keyValToUpdate{nlen+1:} = {sKey, val};
+				else
+					_keyValToUpdate{2*nLocation} = val;
+				endif
+				
+				i++;
+			endfor
+			
+			## Return the updated key-value list
+			return _keyValToUpdate{};
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/structures/sortKeyVals.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $sortKeyVals()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-05, um 22:51:05 *#
+		
+		##! \procedure sortKeyVals
+		##! Sorts the keys of the passed key-value list ascending ignoring case and returns the 
+		##! sorted list.
+		##!
+		##! \param _keyVals{}  Key value list to be sorted
+		##! \return CST  The sorted key-value list
+		procedure $sortKeyVals(_keyVals{})
+			cst keys{} = _keyVals{{1:2:nlen}}, idx{}
+			
+			## Sort the keys ascending ignoring case and return the
+			## sorting index
+			idx{} = 2 * sort keys{} -set index ignorecase;
+			
+			## Copy keys and values in the new order
+			_keyVals{{1:2:nlen}} = _keyVals{idx{}-1};
+			_keyVals{{2:2:nlen}} = _keyVals{idx{}};
+			
+			## Return the sorted list
+			return _keyVals{};
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/tests.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $tests()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-18, um 21:35:37 *#
+		
+		##! \procedure tests
+		##! This procedure runs all tests for the tools.
+		procedure $tests()
+			namespace thisfile
+			
+			$extractTableParams();
+			$getColFromTable();
+			$getLineFromTable();
+			$getFoldersRecursively();
+			$getNextArgument();
+			$stripSpaces();
+			$getLatestVersion();
+			
+			$this~grids~tests();
+			$this~strings~tests();
+			$this~structures~tests();
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure extractTableParams
+		##! Test the extract table params functionality.
+		procedure $extractTableParams() :: explicit test
+			print "tools: Extract table params test ..."
+			tab testtab()
+			str sTabName
+			testtab(:, 1) = {1:10};
+			testtab(:, 2) = sin({1:10});
+			sTabName = testtab().name;
+			sTabName = sTabName.sub(1, sTabName.fnd("(")-1);
+			
+			assert $this~extractTableParams(testtab().name) == {sTabName, 1, 10, 1, 2};
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure getColFromTable
+		##! Test the column read functionality.
+		procedure $getColFromTable() :: explicit test
+			print "tools: Get col from table test ..."
+			tab testtab(), res()
+			testtab(:, 1) = {1:10};
+			testtab(:, 2) = sin({1:10});
+			assert $this~getColFromTable(testtab().name) == {1:10};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure getLineFromTable
+		##! Test the line read functionality.
+		procedure $getLineFromTable() :: explicit test
+			print "tools: Get line from table test ..."
+			tab testtab()
+			testtab(1, :) = {1:10};
+			testtab(2, :) = sin({1:10});
+			assert $this~getLineFromTable(testtab().name) == {1:10};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure getFoldersRecursively
+		##! Test the recursive folder functionality.
+		procedure $getFoldersRecursively() :: explicit test
+			print "tools: Get folders recursively test ..."
+			assert $this~getFoldersRecursively("<this>") == ("<this>" + {"", "/grids", "/gui", "/strings", "/structures"});
+			return void;
+		endprocedure
+		
+		
+		##! \procedure getNextArgument
+		##! Test the get next argument functionality.
+		procedure $getNextArgument() :: explicit test
+			print "tools: Get next argument test ..."
+			assert $this~getNextArgument("cos(norm(x,y)), sin(x), tan(x)") == {"cos(norm(x,y))", " sin(x), tan(x)"};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure stripSpaces
+		##! Test the strip spaces functionality.
+		procedure $stripSpaces() :: explicit test
+			print "tools: Strip spaces test ..."
+			assert $this~stripSpaces("  Hello world!   ") == "Hello world!";
+			return void;
+		endprocedure
+		
+		
+		##! \procedure getLatestVersion
+		##! Test the latest version reading functionality.
+		procedure $getLatestVersion() :: explicit test
+			print "tools: Get latest version test ..."
+			warn "Test disabled due to problems with SourceForge"
+			## 	str sLatestVersion = $this~getLatestVersion();
+			## 	assert sLatestVersion.fnd("numere-win-v") && sLatestVersion.fnd(".exe");
+			return void;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/strings/tests.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $tests()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-18, um 17:37:31 *#
+		
+		##! \procedure tests
+		##! This procedure runs all tests for the strings tools.
+		procedure $tests() :: explicit mask
+			namespace thisfile
+			
+			$camelize();
+			$replaceAllFromList();
+			$reverse();
+			$strip();
+			$wrapWords();
+			$createColumns();
+			$format();
+			$toRomanNumbers();
+			$fromRomanNumbers();
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure camelize
+		##! Test the camelize functionality.
+		procedure $camelize() :: explicit test
+			print "tools~strings: Camelize test ..."
+			assert $this~camelize("Some string with white spaces") == "SomeStringWithWhiteSpaces";
+			assert $this~camelize(" Another string with_mixtures and suffixes_") == "AnotherStringWithMixturesAndSuffixes";
+			assert $this~camelize("THIS_IS_AN_ALL_UPPERCASE") == "ThisIsAnAllUppercase";
+			return void;
+		endprocedure
+		
+		
+		##! \procedure replaceAllFromList
+		##! Test the replace all from a key-value list functionality.
+		procedure $replaceAllFromList() :: explicit test
+			print "tools~strings: Replace all from list test ..."
+			assert $this~replaceAllFromList("Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam", {"lo", "**", "magna", "-----"}) == "Lorem ipsum do**r sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et do**re ----- aliquyam";
+			return void;
+		endprocedure
+		
+		
+		##! \procedure reverse
+		##! Test the character reversion functionality.
+		procedure $reverse() :: explicit test
+			print "tools~strings: Reverse test ..."
+			assert $this~reverse("Hello world!") == "!dlrow olleH";
+			return void;
+		endprocedure
+		
+		
+		##! \procedure strip
+		##! Test the surrounding character stripping functionality.
+		procedure $strip() :: explicit test
+			print "tools~strings: Strip test ..."
+			assert $this~strip("  Hello world!    ") == "Hello world!";
+			assert $this~strip("***Hello world!   ", "*") == "Hello world!   ";
+			return void;
+		endprocedure
+		
+		
+		##! \procedure wrapWords
+		##! Test the word wrapping functionality.
+		procedure $wrapWords() :: explicit test
+			print "tools~strings: Wrap words test ..."
+			assert $this~wrapWords("Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam", 30) == "Lorem ipsum dolor sit amet,\nconsetetur sadipscing elitr,\nsed diam nonumy eirmod tempor\ninvidunt ut labore et dolore\nmagna aliquyam";
+			assert $this~wrapWords("Lorem ipsum dolor sit amet,\nconsetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam", 30) == "Lorem ipsum dolor sit amet,\nconsetetur sadipscing elitr,\nsed diam nonumy eirmod tempor\ninvidunt ut labore et dolore\nmagna aliquyam";
+			return void;
+		endprocedure
+		
+		
+		##! \procedure createColumns
+		##! Test the column creating functionality.
+		procedure $createColumns() :: explicit test
+			print "tools~strings: Create columns test ..."
+			str sText = "Several characteristics define a data set's structure and properties. These include the number and types of the attributes or variables, and various statistical measures applicable to them, such as standard deviation and kurtosis.[4]\n\nThe values may be numbers, such as real numbers or integers, for example representing a person's height in centimeters, but may also be nominal data (i.e., not consisting of numerical values), for example representing a person's ethnicity."
+			
+			assert $this~createColumns(sText, 2, 100) == "Several characteristics define a data set's    The values may be numbers, such as real    \nstructure and properties. These include the    numbers or integers, for example           \nnumber and types of the attributes or          representing a person's height in          \nvariables, and various statistical measures    centimeters, but may also be nominal data  \napplicable to them, such as standard           (i.e., not consisting of numerical values),\ndeviation and kurtosis.[4]                     for example representing a person's        \n                                               ethnicity.                                 ";
+			assert $this~createColumns(sText, 2, 60, 10) == "Several                     The values may be \ncharacteristics             numbers, such as  \ndefine a data               real numbers or   \nset's structure             integers, for     \nand properties.             example           \nThese include the           representing a    \nnumber and types            person's height in\nof the attributes           centimeters, but  \nor variables, and           may also be       \nvarious                     nominal data      \nstatistical                 (i.e., not        \nmeasures                    consisting of     \napplicable to               numerical values),\nthem, such as               for example       \nstandard deviation          representing a    \nand kurtosis.[4]            person's          \n                            ethnicity.        ";
+			assert $this~createColumns(sText, 4, 180,  10) == "Several characteristics define a          various statistical measures              The values may be numbers, such           consisting of numerical values),\ndata set's structure and                  applicable to them, such as               as real numbers or integers, for          for example representing a      \nproperties. These include the             standard deviation and                    example representing a person's           person's ethnicity.             \nnumber and types of the                   kurtosis.[4]                              height in centimeters, but may  \nattributes or variables, and                                                        also be nominal data (i.e., not ";
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure format
+		##! Test the string formatting functionality.
+		procedure $format() :: explicit test
+			print "tools~strings: String formatting test ..."
+			assert $this~format("{1}, {2}!", {"Hello", "World"}) == "Hello, World!";
+			assert $this~format("{1}, {2}, {3} ... {4}!", {1,2,1+2,"vorbei"}) == "1, 2, 3 ... vorbei!";
+			assert $this~format("{1}, {2}, {3} ... {4}!") == "{1}, {2}, {3} ... {4}!";
+			assert $this~format("{1}, {2}, {3} ... {4}!", {"","",""}) == ", ,  ... {4}!";
+			return void;
+		endprocedure
+		
+		
+		##! \procedure toRomanNumbers
+		##! Test the roman numbers conversion functionality.
+		procedure $toRomanNumbers() :: explicit test
+			print "tools~strings: Roman number conversion test ..."
+			assert $this~toRomanNumbers(2022) == "MMXXII";
+			assert $this~toRomanNumbers(1987) == "MCMLXXXVII";
+			assert $this~toRomanNumbers(123) == "CXXIII";
+			assert $this~toRomanNumbers(555) == "DLV";
+			return void;
+		endprocedure
+		
+		
+		##! \procedure fromRomanNumbers
+		##! Test the inverse roman numbers conversion functionality.
+		procedure $fromRomanNumbers() :: explicit test
+			print "tools~strings: Inverse roman number conversion test ..."
+			assert $this~fromRomanNumbers("MMXXII") == 2022;
+			assert $this~fromRomanNumbers("mcmlxxxvii") == 1987;
+			assert $this~fromRomanNumbers("cxxiii") == 123;
+			assert $this~fromRomanNumbers("DLV") == 555;
+			return void;
+		endprocedure
+		
+		
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/structures/tests.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $tests()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-18, um 20:05:49 *#
+		
+		##! \procedure tests
+		##! This procedure runs all tests for the structures tools.
+		procedure $tests() :: explicit mask
+			namespace thisfile
+			
+			$makeKeyVals();
+			$mergeKeyVals();
+			$intersectKeyVals();
+			$sortKeyVals();
+			$printKeyVals();
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure makeKeyVals
+		##! Test the key-value list generation functionality.
+		procedure $makeKeyVals() :: explicit test
+			print "tools~structures: Make Key-Value test ..."
+			assert $this~makeKeyVals({"key1", "key2", "key3"}, {"a", true, #<loadpath>}) == {"key1", "a", "key2", true, "key3", #<loadpath>};
+			assert $this~makeKeyVals({"key1", "key2", "key3"}, {1:3}) == {"key1", 1, "key2", 2, "key3", 3};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure mergeKeyVals
+		##! Test the merging of two key-value lists.
+		procedure $mergeKeyVals() :: explicit test
+			print "tools~structures: Merge Key-Value test ..."
+			assert $this~mergeKeyVals({"key1", "a", "key2", false}, {"key2", true, "key3", #<loadpath>}) == {"key1", "a", "key2", true, "key3", #<loadpath>};
+			assert $this~mergeKeyVals({"key1", "a", "Key2", false}, {"key3", #<loadpath>, "Key2", true}) == {"key1", "a", "Key2", 1, "key3", #<loadpath>};
+			return void; 
+		endprocedure
+		
+		
+		##! \procedure intersectKeyVals
+		##! Test the intersection of two key-value lists.
+		procedure $intersectKeyVals() :: explicit test
+			print "tools~structures: Intersect Key-Value test ..."
+			assert $this~intersectKeyVals({"key1", "a", "key2", false}, {"key2", true, "key3", #<loadpath>, "key1", "value"}) == {"key1", "value", "key2", true};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure sortKeyVals
+		##! Test the sorting of a key-value list.
+		procedure $sortKeyVals() :: explicit test
+			print "tools~structures: Sort Key-Value test ..."
+			assert $this~sortKeyVals({"key2", true, "Key3", #<loadpath>, "key1", "value"}) == {"key1", "value", "key2", true, "Key3", #<loadpath>};
+			return void;
+		endprocedure
+		
+		
+		##! \procedure printKeyVals
+		##! Test the possibility to print a key-value list to a string.
+		procedure $printKeyVals() :: explicit test
+			print "tools~structures: Print Key-Value test ..."
+			str sLP = #<loadpath>
+			assert $this~printKeyVals({"key2", true, "Key3", #<loadpath>, "key1", "value"}) == "key2:    true" + repeat(" ", sLP.len-4) + "\nKey3:    " + sLP + "\nkey1:    value" + repeat(" ", sLP.len-5);
+			return void;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/grids/deserialize.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $deserialize()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-20, um 11:31:50 *#
+		
+		##! \procedure deserialize
+		##! De-serialize a x-y-z coordinate set into a regular x-y grid, where every point in the grid
+		##! matches to exactly one z value in the coordinate set.
+		##!
+		##! \param _xyzpoints()  Serialized coordinate set
+		##! \param _grid()&  Output data grid
+		##! \param _xyz{}  (!!={1,2,3}!!) Column indices of x,y, and z in the serialized coordinate set
+		##! \return VAL  Size of x axis in the final grid
+		##! \return VAL  Size of y axis in the final grid
+		procedure $deserialize(_xyzpoints(), _grid()&, _xyz{} = {1,2,3}) :: explicit mask
+			tab coords()
+			var nCoordsX, nCoordsY
+			
+			## Ensure that the column types as "value-like" types
+			if (or(_xyzpoints().typeof(_xyz{}) == "string"))
+				throw "deserialize :: One or more columns of the passed table cannot be interpreted as numerical values."
+			endif
+			
+			## Get the coordinate list and make it unique
+			matop coords() = unique(_xyzpoints(:, _xyz{1:2}), 2);
+			
+			## Create the target data grid
+			{nCoordsX, nCoordsY} = coords().num.cols;
+			datagrid 0 -set x=coords(:, 1) y=coords(:, 2) target=_grid()
+			
+			## Convert the "cartesian" coordinates to grid coordintates
+			matop coords() = coordstogrid(coords(), _xyzpoints(:, _xyz{1:2}));
+			
+			## Assemble the deserialized matrix
+			matop _grid(:,3:) = assemble(coords(:, 1), coords(:, 2), _xyzpoints(:, _xyz{3}));
+			return {nCoordsX, nCoordsY};
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/grids/isGrid.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $isGrid()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-21, um 21:58:42 *#
+		
+		##! \procedure isGrid
+		##! Returns, whether the passed table has the correct dimensions to fulfill the requirements of
+		##! a grid. This does not mean that it automatically has to be a grid as there's no programmatical
+		##! easy way to determine this property.
+		##!
+		##! \param _table()  The table to examine
+		##! \return LOG  True, if the table fulfills the requirements, false otherwise
+		procedure $isGrid(_table()) :: explicit mask
+			var nAxisX, nAxisY, nSizeX, nSizeY
+			
+			## Check minimal dimension requirements
+			if (num(_table(1, :)) < 3)
+				return false;
+			endif
+			
+			## Get axis and z matrix sizes
+			{nAxisX, nAxisY} = _table().num.cols.every({1,2});
+			matop {nSizeX, nSizeY} = size(_table(:, 3:));
+			
+			## Check the sizes
+			if (nSizeX < nAxisX || nSizeY < nAxisY)
+				return false;
+			endif
+			
+			return true;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/grids/serialize.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $serialize()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-20, um 11:31:40 *#
+		
+		##! \procedure serialize
+		##! Serialize a datagrid into x-y-z coordinate pairs, where each grid point occurs once in the 
+		##! serialized table with dimx * dimy points times three columns.
+		##!
+		##! \param _grid()  Input data grid
+		##! \param _xyzpoints()&  Output serialized grid
+		##! \return VAL  The number of rows in the serialized grid
+		procedure $serialize(_grid(), _xyzpoints()&) :: explicit mask
+			var nCoordsX, nCoordsY
+			nCoordsX = num(_grid(:, 1));
+			nCoordsY = num(_grid(:, 2));
+			
+			matop _xyzpoints(:, 1) = reshape(repmat(_grid(1:nCoordsX, 1), 1, nCoordsY), nCoordsX*nCoordsY, 1);
+			matop _xyzpoints(:, 2) = repmat(_grid(1:nCoordsY, 2), nCoordsX, 1);
+			matop _xyzpoints(:, 3) = reshape(_grid(1:nCoordsX, 3:nCoordsY+2), nCoordsX * nCoordsY, 1);
+			
+			return nCoordsX * nCoordsY;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/grids/tests.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $tests()
+		* ============================================================================================
+		* Hinzugefügt: 2021-05-20, um 11:31:58 *#
+		
+		##! \procedure tests
+		##! This procedure runs all tests for the grids tools.
+		procedure $tests() :: explicit mask
+			namespace thisfile
+			tab testdata(), ret(), ret2()
+			datagrid sin(x) + cos(y) -set [-2:2, -4:4] samples=40 target=testdata()
+			
+			$serialize(testdata(), ret());
+			$deserialize(ret(), ret2());
+			$roundTrip(testdata(), ret2());
+			$isGrid();
+			$extractSubGrid();
+			
+			return void;
+		endprocedure
+		
+		
+		##! \procedure serialize
+		##! Test the serializing functionality.
+		##!
+		##! \param _testdata()  Datagrid to serialize
+		##! \param _serialized()&  Serialized datagrid
+		procedure $serialize(_testdata(), _serialized()&) :: explicit test
+			print "tools~grids: Serialize test ..."
+			assert $this~serialize(_testdata(), _serialized());
+			assert num(_serialized(:, 1)) == num(_testdata(:, 1)) * num(_testdata(:, 2));
+			return void;
+		endprocedure
+		
+		
+		##! \procedure deserialize
+		##! Test the de-serializing functionality.
+		##!
+		##! \param _testdata()  Serialized datagrid
+		##! \param _grid()  De-serialized datagrid
+		procedure $deserialize(_testdata(), _grid()&) :: explicit test
+			print "tools~grids: De-serialize test ..."
+			assert $this~deserialize(_testdata(), _grid()) == {40, 40};
+			assert num(_testdata(:, 1)) == num(_grid(:, 1)) * num(_grid(:, 2));
+			return void;
+		endprocedure
+		
+		
+		##! \procedure roundTrip
+		##! Perform a roundtrip check.
+		##!
+		##! \param _origData()  Original data grid
+		##! \param _processedData()  Twice transformed grid
+		procedure $roundTrip(_origData(), _processedData()) :: explicit test
+			print "tools~grids: Round trip test ..."
+			assert matop _origData() == _processedData();
+		endprocedure
+		
+		
+		##! \procedure isGrid
+		##! Test the grid determination functionality.
+		procedure $isGrid() :: explicit test
+			print "tools~grids: Is grid test ..."
+			tab grid(), falsegrid()
+			datagrid sinc(norm(x,y)) -set [-5:5,-5:5] target=grid()
+			falsegrid(:, 1) = {1:20};
+			falsegrid(:, 2) = {1:15};
+			falsegrid(:, 3) = {1:10};
+			falsegrid(:, 3) = {1:18};
+			
+			assert $this~isGrid(grid());
+			assert !$this~isGrid(falsegrid());
+			return void;
+		endprocedure
+		
+		
+		##! \procedure extractSubGrid
+		##! Test the grid extraction functionality.
+		procedure $extractSubGrid() :: explicit test
+			print "tools~grids: Extract subgrid test ..."
+			tab grid(), extracted()
+			datagrid abs(x) <= 2 && abs(y) <= 2 ? 2 : 0 -set [-5:5,-5:5] target=grid()
+			extracted() = $this~extractSubGrid(grid(), {-2,2}, {-2,2});
+			assert extracted().min.grid == extracted().max.grid;
+			assert extracted().min.grid == 2;
+			assert extracted().sum.grid == grid().sum.grid;
+			return void;
+		endprocedure
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/strings/format.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $format()
+		* ============================================================================================
+		* Hinzugefügt: 2022-02-28, um 21:30:22 *#
+		
+		##! \procedure format
+		##! Uses the passed formatting string (where each token is indicated with !!{N}!!, where !!N!!
+		##! is the token number) to insert the passed tokens at the desired positions. The formatted
+		##! string is returned afterwards.
+		##!
+		##! \param _sFormatString  The formatting string
+		##! \param _tokens{}  (!!={""}!!) The token list
+		##! \return STR  The formatted string
+		procedure $format(_sFormatString, _tokens{} = {}) :: mask explicit
+			var nTokenCount = cnt(_tokens{})
+			
+			## If no token was passed, simply return the formatting string
+			if (!nTokenCount)
+				return _sFormatString;
+			endif
+			
+			## Make a key-value list from the tokens
+			_tokens{{2:2:2*nTokenCount}} = #(_tokens{});
+			_tokens{{1:2:2*nTokenCount}} = "{" + #{1:nTokenCount} + "}";
+			
+			## Replace the tokens using the key-value list
+			return $this~replaceAllFromList(_sFormatString, _tokens{});
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+		
+	<endfile>
+
+	<file name="<procpath>/tools/grids/extractSubGrid.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $extractSubGrid()
+		* ============================================================================================
+		* Hinzugefügt: 2022-03-23, um 14:56:36 *#
+		
+		##! \procedure extractSubGrid
+		##! Extracts a part of the grid, which can be selected from the axis ranges. The target ranges can
+		##! be passed as parameters.
+		##!
+		##! \param _grid()  The source data grid
+		##! \param _xRange{}  (!!={-inf,inf}!!) The target x range of the new data grid
+		##! \param _yRange{}  (!!={-inf,inf}!!) The target y range of the new data grid
+		##! \return TAB  The new data grid
+		procedure $extractSubGrid(_grid(), _xRange{} = {-inf,inf}, _yRange{} = {-inf,inf}) :: explicit mask
+			tab subGrid()
+			cst colIdx{}, rowIdx{}
+			
+			## Get the indices for rows and columns
+			matop rowIdx{} = logtoidx(_grid(:,1) >= min(_xRange{}) && _grid(:,1) <= max(_xRange{}));
+			matop colIdx{} = logtoidx(_grid(:,2) >= min(_yRange{}) && _grid(:,2) <= max(_yRange{}));
+			
+			## Ensure that the indices have a valid value
+			if (!and(rowIdx{}) || !and(colIdx{}))
+				throw "extractSubGrid :: One of the ranges is either too small or out of the grid bounds."
+			endif
+			
+			## Fill up the axes
+			subGrid(:, 1) = _grid(rowIdx{}, 1);
+			subGrid(:, 2) = _grid(colIdx{}, 2);
+			
+			## Fill up the data interval
+			matop subGrid(:, 3:) = _grid(rowIdx{}, colIdx{}+2);
+			return subGrid();
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/tools/strings/fromRomanNumbers.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $fromRomanNumbers()
+		* ============================================================================================
+		* Hinzugefügt: 2022-03-29, um 21:37:54 *#
+		
+		##! \procedure fromRomanNumbers
+		##! Converts a string of roman number literals to actual integers.
+		##!
+		##! \param _sValue  The roman number literal string
+		##! \return VAL  The corresponding integer
+		procedure $fromRomanNumbers(_sValue) :: explicit mask
+			var nValue = 0
+			_sValue = to_uppercase(_sValue);
+			
+			if (_sValue.nmtch("MDCLXVI"))
+				throw "fromRomanNumbers :: The passed string \"" + _sValue + "\" contains characters, which are not valid roman number literals."
+			endif
+			
+			for (i = 1:_sValue.len)
+				if (_sValue.at(i) == "M")
+					nValue += 1000;
+				elseif (_sValue.sub(i, 2) == "CM")
+					nValue += 900;
+					i++;
+				elseif (_sValue.sub(i, 2) == "CD")
+					nValue += 400;
+					i++;
+				elseif (_sValue.at(i) == "C")
+					nValue += 100;
+				elseif (_sValue.at(i) == "D")
+					nValue += 500;
+				elseif (_sValue.sub(i, 2) == "XC")
+					nValue += 90;
+					i++;
+				elseif (_sValue.sub(i, 2) == "XL")
+					nValue += 40;
+					i++;
+				elseif (_sValue.at(i) == "X")
+					nValue += 10;
+				elseif (_sValue.at(i) == "L")
+					nValue += 50;
+				elseif (_sValue.sub(i, 2) == "IX")
+					nValue += 9;
+					i++;
+				elseif (_sValue.sub(i, 2) == "IV")
+					nValue += 4;
+					i++;
+				elseif (_sValue.at(i) == "I")
+					nValue += 1;
+				elseif (_sValue.at(i) == "V")
+					nValue += 5;
+				endif
+			endfor
+			
+			return nValue;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/tools/strings/toRomanNumbers.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $toRomanNumbers()
+		* ============================================================================================
+		* Hinzugefügt: 2022-03-29, um 21:01:51 *#
+		
+		##! \procedure toRomanNumbers
+		##! Converts a value in the range from 1 to 3999 to roman number literals and returns them as a
+		##! string.
+		##!
+		##! \param _nValue  The value to convert
+		##! \return STR  The roman number literal string
+		procedure $toRomanNumbers(_nValue) :: explicit mask
+			str sRomanNumber
+			var nCurrVal
+			
+			## Convert to integer
+			_nValue = rint(_nValue);
+			
+			## Check if number is in valid range
+			if (_nValue < 1 || _nValue > 3999)
+				throw "toRomanNumbers :: Only integral values from 1 to 3999 are representable as roman numbers."
+			endif
+			
+			## Format thousands
+			if (_nValue >= 1'k)
+				sRomanNumber = repeat("M", floor(_nValue / 1'k));
+				_nValue = _nValue % 1'k;
+			endif
+			
+			## Format hundreds
+			if (_nValue >= 100)
+				nCurrVal = floor(_nValue / 100);
+				_nValue = _nValue % 100;
+				sRomanNumber += $thisfile~formatTenths(nCurrVal, "C", "D", "M");
+			endif
+			
+			## Format tenths
+			if (_nValue >= 10)
+				nCurrVal = floor(_nValue / 10);
+				_nValue = _nValue % 10;
+				sRomanNumber += $thisfile~formatTenths(nCurrVal, "X", "L", "C");
+			endif
+			
+			## Format ones
+			sRomanNumber += $thisfile~formatTenths(_nValue, "I", "V", "X");
+			return sRomanNumber;
+		endprocedure
+		
+		
+		##! \procedure formatTenths
+		##! Helper procedure to format the current tenths.
+		##!
+		##! \param _nValue  The current multiple
+		##! \param _sSingle  The single value character
+		##! \param _sFive  The "five" character
+		##! \param _sTen  The "ten" character
+		##! \return STR  The formatted string
+		procedure $formatTenths(_nValue, _sSingle, _sFive, _sTen) :: explicit
+			if (_nValue == 9)
+				return _sSingle + _sTen;
+			elseif (_nValue >= 5)
+				return _sFive + repeat(_sSingle, _nValue-5);
+			elseif (_nValue == 4)
+				return _sSingle + _sFive;
+			else
+				return repeat(_sSingle, _nValue);
+			endif
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/tools/structures/printKeyVals.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $printKeyVals()
+		* ============================================================================================
+		* Hinzugefügt: 2022-05-01, um 14:36:04 *#
+		
+		##! \procedure printKeyVals
+		##! Converts a key-value list into a printable string.
+		##!
+		##! \param _keyVals{}  The key-value list to print
+		##! \return STR  The print-ready formatted string
+		procedure $printKeyVals(_keyVals{}) :: explicit inline
+			## Convert the key-value list into a formatted string
+			return strjoin(justify(_keyVals{{1:2:nlen}} + ":") + "    " \\
+			+ justify(#_keyVals{{2:2:nlen}}), "\n");
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/tools/getLatestVersion.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $getLatestVersion()
+		* ============================================================================================
+		* Hinzugefügt: 2022-04-30, um 21:27:48 *#
+		
+		##! \procedure getLatestVersion
+		##! Gets the file name of the latest installer on SourceForge. Shall indicate, whether an update
+		##! might be reasonable.
+		##! \return STR  The installer file name
+		procedure $getLatestVersion()
+			##~ Füge hier deine Kommandos und Ausdrücke ein.
+			str sPage, sTitle
+			
+			## Get the page contents
+			sPage = url "https://sourceforge.net/projects/numere/files/"
+			
+			## Find the download link
+			var nPos = sPage.fnd("/projects/numere/files/latest/download");
+			
+			## Find the title of the download link - will contain the file name
+			nPos = sPage.fnd("title=", nPos);
+			
+			## Extract the title
+			sTitle = getopt(sPage, nPos+6);
+			
+			## Get the installer file name
+			sTitle = textparse(sTitle, "\"/%a/%s:%a");
+			
+			## Return the installer file name
+			return sTitle;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+	<endfile>
+
+	<file name="<procpath>/tools/strings/createColumns.nprc">
+		#**********************************************************************************************
+		* NUMERE-PROZEDUR: $createColumns()
+		* ============================================================================================
+		* Hinzugefügt: 2022-07-05, um 21:31:26 *#
+		
+		##! \procedure createColumns
+		##! Transforms the passed text into a multi column layout. The number of columns and the size of the
+		##! separating whitespace may be changed. The text is automatically (more-or-less) evenly
+		##! distributed along the selected number of columns.
+		##!
+		##! \param _sText  Text to layout
+		##! \param _nColCount  (!!=1!!) Number of columns
+		##! \param _nTotalLength  (!!=0!!) Total available horizontal space in characters. Uses the terminal
+		##! width, if the length is zero or smaller than the number of columns.
+		##! \param _nSeparatorCharCount  (!!=4!!) The length of the separating whitespace between the columns
+		##! \return STR  The ready-to-print layouted text
+		procedure $createColumns(_sText, _nColCount = 1, _nTotalLength = 0, _nSeparatorCharCount = 4) :: explicit mask
+			var nCharsPerColumn, nLinesPerColumn, nTotalLines
+			cst textLines{}, renderedColumns{}
+			
+			## If the entered length is smaller than the number of columns then use the current terminal's
+			## window size for the line length
+			if (_nTotalLength < _nColCount)
+				{_nTotalLength, 0} = get -windowsize -asval;
+			endif
+			
+			nCharsPerColumn = floor(_nTotalLength / _nColCount) - _nSeparatorCharCount - 1;
+			
+			## Ensure that there are characters per column
+			if (nCharsPerColumn <= 0)
+				throw "createColumns :: The selected column layout is impossible with this line length.";
+			endif
+			
+			## Use wrapWords to convert the text into a single column layout, which can then be broken down
+			## to multiple columns afterwards
+			_sText = $this~wrapWords(_sText, nCharsPerColumn);
+			
+			## Prepare the alignment
+			textLines{} = justify(_sText.splt("\n", true));
+			nTotalLines = cnt(textLines{});
+			nLinesPerColumn = roof(num(textLines{}) / _nColCount);
+			
+			## For a single column, we are already finished
+			if (_nColCount <= 1)
+				_sText = strjoin(textLines{}, "\n", true);
+			else
+				## Add the first column
+				renderedColumns{} = textLines{1:nLinesPerColumn};
+				
+				## Append all remaining columns
+				for (i = 2:_nColCount)
+					renderedColumns{} += repeat(" ", _nSeparatorCharCount) + textLines{(i-1)*nLinesPerColumn+1 : min(i*nLinesPerColumn, nTotalLines)};
+				endfor	
+				
+				## Combine all single lines to a single string
+				_sText = strjoin(renderedColumns{}, "\n", true);
+			endif
+			
+			return _sText;
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**********************************************************************************************#
+		
+	<endfile>
+
+	return;
+<endinstall>
+
+warn "Dies ist ein Installations-Script. Um die enthaltenen Prozeduren zu installieren, muss es mit 'install \"<this>/pkg_tools\"' ausgeführt werden."
+
+
+#**Ende der Datei
+ * NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+ * https://www.numere.org/
+ **************************************************************************************************#

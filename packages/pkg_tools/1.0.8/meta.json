@@ -1,0 +1,13 @@
+{
+	"manifest-version": "1.0.0",
+    "name": "Tools",
+    "author": "Erik Hänel",
+    "license": "Apache-2.0",
+    "requirements": {
+        "version": "1.1.7.2412",
+        "packages": ""
+    }
+    "description": "This package provides basic procedures via the \"tools\" namespace, which will enhance and simplify the workflow in many cases. This package also provides multiple sub-namespaces containing functionalities for special cases.",
+    "keywords": "Tools,Utils,Helpers,GUI,Strings,Structures,Grids",
+    "changelog": "2025-03-28 v1.0.8:\n  c Changed code to cope with new v1.1.7.2504\n  + Modernized some solutions to speed up calculation\n2023-01-17 v1.0.7:\n  + Added missing procedure $tools~getLatestVersion()\n  + Added missing procedure $tools~strings~createColumns()\n2022-12-30 v1.0.6:\n  + Added keywords\n  + Added changeslog"
+}
