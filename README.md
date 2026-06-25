@@ -1,4 +1,4 @@
-# Packages
+# NumeRe::Packages
 ## The official package repository for NumeRe
 This repository lists all officially published packages and plugins, which are available for NumeRe. It was migrated from SourceForge, because forking and creating pull requests makes it easier for the package authors to actually share their creations. NumeRe supports this repository starting with the full release of v1.1.8.
 
@@ -34,7 +34,7 @@ packages/
 To make that easier for you, you can install the packaging tools `install pkg_packaging_tools@NumeRe::Packages` and use their functionalities to fill your repository with the necessary structure.
 
 ### Setting up NumeRe for the secondary repository
-To make NumeRe find and understand the secondary package repository, you need to configure it using a `*.repository` file (just a renamed JSON file). The naming convention defines also the priority, i.e. the package repositories are searched in alphabetical order, so if you want to have your repository a higher priority, give it a smaller number in the filename prefix (the default repository uses `10` for this exact purpose).
+To make NumeRe find and understand the secondary package repository, you need to configure it using a `<>/remotes/*.repository` file (just a renamed JSON file). The naming convention defines also the priority, i.e. the package repositories are searched in alphabetical order, so if you want to have your repository a higher priority, give it a smaller number in the filename prefix (the default repository uses `10` for this exact purpose).
 
 If your repository is a public one, we recommend that you add the corresponding `*.repository` either as a file or copyable from a `readme`, so that possible user can just take the configuration.
 
