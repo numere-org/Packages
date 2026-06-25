@@ -47,7 +47,7 @@ This section shows the contents of `10_numere_packages.repository`:
 {
     "version": "1.0.0",
     "name": "NumeRe::Packages",
-    "url": "https://github.com/numere-org/Packages",
+    "url": "https://github.com/numere-org/NumeRe-Packages",
     "authentication": {
          "required": false,
          "method": ""
@@ -57,8 +57,8 @@ This section shows the contents of `10_numere_packages.repository`:
         "sha": "sha",
         "root" : "tree"
     },
-    "tree": "https://api.github.com/repos/numere-org/Packages/git/trees/HEAD?recursive=true",
-    "raw-file": "https://raw.githubusercontent.com/numere-org/Packages/refs/heads/main/{path}"
+    "tree": "https://api.github.com/repos/numere-org/NumeRe-Packages/git/trees/HEAD?recursive=true",
+    "raw-file": "https://raw.githubusercontent.com/numere-org/NumeRe-Packages/refs/heads/main/{path}"
 }
 ```
 To add a GitHub-hosted repo, just copy the contents of this JSON, change the three URLs (replace `numere-org/Packages` with the correspond URL sections for your repository) and adapt the authentication section, if your repo is private with `"required": true,` and `"method": "Authorization: Bearer ghp_YOURGITHUBTOKEN"`.
