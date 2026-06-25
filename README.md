@@ -74,11 +74,11 @@ If you want to host the repository on Gitlab (or a self-hoste instance), then th
         "sha": "id",
         "root" : null
     }
-    "tree": "https://gitlab.com/api/v4/projects/42/repository/tree?recursive=true",
+    "tree": "https://gitlab.com/api/v4/projects/42/repository/tree?recursive=true&per_page=100000",
     "raw-file": "https://gitlab.com/api/v4/projects/42/repository/blobs/{sha}/raw"
 }
 ```
-Note that the `42` in the paths stands for the repository ID not the repository name. You can copy the ID from your repository page.
+Note that the `42` in the paths stands for the repository ID not the repository name. You can copy the ID from your repository page. The `per_page=100000` limit is to allow a tree of identical size as on Github. However, it is not guaranteed that this limit will be supported by Gitlab in the future. If you face troubles, give us a hint.
 
 #### Field documentation
 The meaning of the fields in a `*.repository` configuration is as follows:
