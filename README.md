@@ -1,6 +1,6 @@
 # Packages
-## The official package repository for NumeRe 
-This repository lists all officially published packages and plugins, which are available for NumeRe. It was migrated from SourceForge, because forking and creating pull requests makes it easier for the package authors to actually share their creations.
+## The official package repository for NumeRe
+This repository lists all officially published packages and plugins, which are available for NumeRe. It was migrated from SourceForge, because forking and creating pull requests makes it easier for the package authors to actually share their creations. NumeRe supports this repository starting with the full release of v1.1.8.
 
 ## Contributing
 Because we want to ensure that all contributions are safe and have some kind of quality standard, we introduced the requirement for forking and the creation of pull requests as a desired friction. However, the process is not so different from Winget's approach, although there's more automation behind it. It goes as follows:
@@ -27,49 +27,53 @@ A package repository needs to provide the standard directory structure (it does 
 ```
 packages/
     pkg_XYZ/
-	    x.y.z/
-		    pkg_XYZ.nscr
-			meta.json
+        x.y.z/
+            pkg_XYZ.nscr
+            meta.json
 ```
 To make that easier for you, you can install the packaging tools `install pkg_packaging_tools@NumeRe::Packages` and use their functionalities to fill your repository with the necessary structure.
 
 ### Setting up NumeRe for the secondary repository
-To make NumeRe find and understand the secondary package repository, you need to configure it using a `*.repository` file (just a renamed JSOn file). The naming convention defines also the priority, i.e. the package repositories are searched in alphabetical order, so if you want to have your repository a higher priority, give it a smaller number in the filename prefix (the default repository uses `10` for this exact purpose).
+To make NumeRe find and understand the secondary package repository, you need to configure it using a `*.repository` file (just a renamed JSON file). The naming convention defines also the priority, i.e. the package repositories are searched in alphabetical order, so if you want to have your repository a higher priority, give it a smaller number in the filename prefix (the default repository uses `10` for this exact purpose).
+
+If your repository is a public one, we recommend that you add the corresponding `*.repository` either as a file or copyable from a `readme`, so that possible user can just take the configuration.
 
 This section shows the contents of `10_numere_packages.repository`:
 ```json
 {
+	"version": "1.0.0",
     "name": "NumeRe::Packages",
     "url": "https://github.com/numere-org/Packages",
     "authentication": {
          "required": false,
          "method": ""
     },
-	"keys": {
-		"path" : "path",
-		"sha": "sha",
-		"root" : "tree"
-	},
+    "keys": {
+        "path" : "path",
+        "sha": "sha",
+        "root" : "tree"
+    },
     "tree": "https://api.github.com/repos/numere-org/Packages/git/trees/HEAD?recursive=true",
     "raw-file": "https://raw.githubusercontent.com/numere-org/Packages/refs/heads/main/{path}"
 }
 ```
-To add a GitHub-hosted repo, just copy the contents of this JSON, change the three URLs (replace `numere.org/Packages` with the correspond URL sections for your repository) and adapt the authentication section, if your repo is private with `"required": true,` and `"method": "Authorization: Bearer ghp_YOURGITHUBTOKEN"`.
+To add a GitHub-hosted repo, just copy the contents of this JSON, change the three URLs (replace `numere-org/Packages` with the correspond URL sections for your repository) and adapt the authentication section, if your repo is private with `"required": true,` and `"method": "Authorization: Bearer ghp_YOURGITHUBTOKEN"`.
 
-If you want to host the repository on (a) Gitlab, then the following `*.repository` might be a good starting point (this one is a private one):
+If you want to host the repository on Gitlab (or a self-hoste instance), then the following `*.repository` might be a good starting point (this one is a private one):
 ```json
 {
+	"version": "1.0.0",
     "name": "Gitlab repository",
     "url": "https://gitlab.com/my/Repo",
     "authentication": {
          "required": true,
          "method": "PRIVATE-TOKEN: <AUTHTOKEN>"
     },
-	"keys": {
-		"path" : "path",
-		"sha": "id",
-		"root" : ""
-	}
+    "keys": {
+        "path" : "path",
+        "sha": "id",
+        "root" : ""
+    }
     "tree": "https://gitlab.com/api/v4/projects/42/repository/tree?recursive=true",
     "raw-file": "https://gitlab.com/api/v4/projects/42/repository/blobs/{sha}/raw"
 }
@@ -77,15 +81,16 @@ If you want to host the repository on (a) Gitlab, then the following `*.reposito
 Note that the `42` in the paths stands for the repository ID not the repository name. You can copy the ID from your repository page.
 
 #### Field documentation
-The meaning of the fields in the `*.repository` configurations is as follows:
+The meaning of the fields in a `*.repository` configuration is as follows:
+- `"version"`: defines the version of the `*.repository` file standard by itself. Is used for future compatibility.
 - `"name"`: defines the package name used for uniquely identifying packages via `PKG_ID@name`
 - `"url"`: this is the (browser) URL for the repository. Not used yet
 - `"authentication"`: Defines settings for user authentication
     - `"required"`: Is an authentication required?
-	- `"method"`: The HTTP header to be used for authenticating a user
+    - `"method"`: The HTTP header to be used for authenticating a user
 - `"keys"`: defines translations keys from one REST API to the Github format
     - `"path"`: the JSON field for the path of the package in the repository
-	- `"sha"`: the SHA of the file in the tree
-	- `"tree"`: defines the root element in the REST API response. GitHub uses `"tree"`, Gitlab doesn't have it at all
+    - `"sha"`: the SHA of the file in the tree
+    - `"root"`: defines the root element in the REST API response. GitHub uses `"tree"`, Gitlab doesn't have it at all
 - `"tree"`: defines the REST API for obtaining the repository tree
 - `"raw-file"`: defines the URL to be used to obtain the raw file from the repository. Can contain either the `{path}` or the `{sha}` placeholders, which will be replaced by the respective keys
