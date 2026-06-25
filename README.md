@@ -72,7 +72,7 @@ If you want to host the repository on Gitlab (or a self-hoste instance), then th
     "keys": {
         "path" : "path",
         "sha": "id",
-        "root" : ""
+        "root" : null
     }
     "tree": "https://gitlab.com/api/v4/projects/42/repository/tree?recursive=true",
     "raw-file": "https://gitlab.com/api/v4/projects/42/repository/blobs/{sha}/raw"
