@@ -30,10 +30,10 @@ packages/
         i.j.k/
             pkg_XYZ.nscr
             meta.json
-		n.m.o/
-		    ...
-	pkg_ABC/
-	    ...
+        n.m.o/
+            ...
+    pkg_ABC/
+        ...
 ```
 To make that easier for you, you can install the packaging tools (`install pkg_packaging_tools@NumeRe::Packages`) and use their functionalities to fill your repository with the necessary structure.
 
@@ -45,7 +45,7 @@ If your repository is a public one, we recommend that you add the corresponding 
 This section shows the contents of `10_numere_packages.repository`:
 ```json
 {
-	"version": "1.0.0",
+    "version": "1.0.0",
     "name": "NumeRe::Packages",
     "url": "https://github.com/numere-org/Packages",
     "authentication": {
@@ -66,7 +66,7 @@ To add a GitHub-hosted repo, just copy the contents of this JSON, change the thr
 If you want to host the repository on Gitlab (or a self-hoste instance), then the following `*.repository` might be a good starting point (this one is a private one):
 ```json
 {
-	"version": "1.0.0",
+    "version": "1.0.0",
     "name": "Gitlab repository",
     "url": "https://gitlab.com/my/Repo",
     "authentication": {
