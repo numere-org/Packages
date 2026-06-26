@@ -1,0 +1,61 @@
+#***************************************************************************************************
+ * SCRIPTNAME: plgn_test_plugin 
+ * =================================================================================================
+ * Hinzugefügt: 2025-01-19, um 14:31:32 *#
+
+##~ Füge hier deine Kommandos und Ausdrücke ein.
+<install>
+	<info>
+		-name="Test-Plugin"
+		-author="EKHL"
+		-version="0.0.2"
+		-flags=DISABLE_SCREEN_OUTPUT
+		-type=TYPE_PLUGIN
+		-license="Apache-2.0"
+		-desc=""
+		-keywords=""
+		-changelog=""
+		-plugincommand="plugintest"
+		-pluginmain="$plugins~test~main(<EXPRESSION>,<EXPRSTRING>,<CMDSTRING>,<PARAMSTRING>,<PARAMLIST>)"
+		-requireversion="1.1.8"
+		-requirepackages="pkg_tools"
+	<endinfo>
+
+	<file name="<procpath>/plugins/test/main.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $main()
+		* =================================================================================================
+		* Hinzugefügt: 2024-03-05, um 11:10:07 *#
+		
+		procedure $main(_expr, _sExpr, _sCmdString, _sParamString, _params{}) :: template
+			print _sExpr
+			print _sCmdString
+			print _sParamString
+			
+			if (num(_params{}))
+				print $tools~structures~printKeyVals(_params{})
+			endif
+			
+			return true;
+		endprocedure
+		
+		##~ Ergänze hier weitere lokale Prozeduren
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	return;
+<endinstall>
+
+warn "Dies ist ein Installations-Script. Um die enthaltenen Prozeduren zu installieren, muss es mit 'install \"<this>/plgn_test_plugin\"' ausgeführt werden."
+
+
+#**Ende der Datei
+ * NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+ * https://www.numere.org/
+ **************************************************************************************************#
