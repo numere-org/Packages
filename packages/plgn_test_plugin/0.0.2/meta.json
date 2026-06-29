@@ -1,0 +1,13 @@
+{
+	"author": "EKHL",
+	"changelog": "",
+	"description": "",
+	"keywords": "",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "Test-Plugin",
+	"requirements": {
+		"packages": "pkg_tools",
+		"version": "1.1.8"
+	}
+}
