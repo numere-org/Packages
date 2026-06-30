@@ -18,7 +18,7 @@ Please get in touch or open an issue. We will extend this readme during the reso
 This section is about advanced topics, which are not relevant for every user.
 
 ## Custom or private repositories
-Especially in an enterprise context, where the intellectual property topic may be challening, not all code might be allowed to leave the company's IT infrastructure. Contributing packages with such code snippets won't be allowed. Therefore, it is necessary to have a separate package repository especially for and governed the company.
+Especially in an enterprise context, where the intellectual property topic may be challenging, not all code might be allowed to leave the company's IT infrastructure. Contributing packages with such code snippets won't be allowed. Therefore, it is necessary to have a separate package repository especially for and governed by the company.
 
 NumeRe supports (with the full release of v1.1.8) the usage of multiple package repositories, which can co-exist side-by-side. To be usable, the package repositories need to provide a REST API similar to the one here on GitHub. We can ensure that private and public repositories work on GitHub and Gitlab.
 
@@ -42,8 +42,9 @@ To make that easier for you, you can install the packaging tools (`install pkg_p
 ### Setting up NumeRe for the secondary repository
 To make NumeRe find and understand the secondary package repository, you need to configure it using a `<>/remotes/*.repository` file (just a renamed JSON file). The naming convention defines also the priority, i.e. the package repositories are searched in alphabetical order, so if you want to have your repository a higher priority, give it a smaller number in the filename prefix (the default repository uses `10` for this exact purpose).
 
-If your repository is a public one, we recommend that you add the corresponding `*.repository` either as a file or copyable from a `readme`, so that possible user can just take the configuration.
+If your repository is a public one, we recommend that you add the corresponding `*.repository` either as a file or make copyable from a `readme`, to make it easy for possible users to configure NumeRe for your repository.
 
+#### GitHub as Host
 This section shows the contents of `10_numere_packages.repository`:
 ```json
 {
@@ -63,9 +64,10 @@ This section shows the contents of `10_numere_packages.repository`:
     "raw-file": "https://raw.githubusercontent.com/numere-org/NumeRe-Packages/refs/heads/main/{path}"
 }
 ```
-To add a GitHub-hosted repo, just copy the contents of this JSON, change the three URLs (replace `numere-org/Packages` with the correspond URL sections for your repository) and adapt the authentication section, if your repo is private with `"required": true,` and `"method": "Authorization: Bearer ghp_YOURGITHUBTOKEN"`.
+To add a GitHub-hosted repo, just copy the contents of this JSON, change the three URLs (replace `numere-org/Packages` with the correspond URL sections for your repository) and adapt the authentication section, if your repo is private, with `"required": true,` and `"method": "Authorization: Bearer ghp_YOURGITHUBTOKEN"`.
 
-If you want to host the repository on Gitlab (or a self-hoste instance), then the following `*.repository` might be a good starting point (this one is a private one):
+#### Gitlab as Host
+If you want to host the repository on Gitlab (or a self-hosted instance), then the following `*.repository` might be a good starting point (this one is a private one):
 ```json
 {
     "version": "1.0.0",
@@ -86,6 +88,9 @@ If you want to host the repository on Gitlab (or a self-hoste instance), then th
 ```
 Note that the `42` in the paths stands for the repository ID not the repository name. You can copy the ID from your repository page. The `per_page=100000` limit is to allow a tree of identical size as on Github. However, it is not guaranteed that this limit will be supported by Gitlab in the future. If you face troubles, give us a hint.
 
+#### Other Hosts
+Other hosts than GitHub or Gitlab may not work, although their API might be similar to GitHub's (Bitbucket seems to be such a candidate). Do not hesitate to ask for assistance in spinning your repository up and make it accessible. This service is free for individuals. Enterprise users may get in touch to clarify licensing, warranty and compensation.
+
 #### Field documentation
 The meaning of the fields in a `*.repository` configuration is as follows:
 - `"version"`: defines the version of the `*.repository` file standard by itself. Is used for future compatibility.
@@ -93,7 +98,7 @@ The meaning of the fields in a `*.repository` configuration is as follows:
 - `"url"`: this is the (browser) URL for the repository. Not used yet
 - `"authentication"`: Defines settings for user authentication
     - `"required"`: Is an authentication required?
-    - `"method"`: The HTTP header to be used for authenticating a user
+    - `"method"`: The HTTP header to be used for authenticating a user. Authenticated users are also less likely to experience a rate limit
 - `"keys"`: defines translations keys from one REST API to the Github format
     - `"path"`: the JSON field for the path of the package in the repository
     - `"sha"`: the SHA of the file in the tree
