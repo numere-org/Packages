@@ -1,0 +1,88 @@
+#***************************************************************************************************
+ * SCRIPTNAME: plgn_packaging_tools_plugin 
+ * =================================================================================================
+ * Hinzugefügt: 2026-06-30, um 10:02:31 *#
+
+##~ Füge hier deine Kommandos und Ausdrücke ein.
+<install>
+	<info>
+		-name="Packaging Tools Plugin"
+		-author="Erik Hänel"
+		-version="0.0.1"
+		-type=TYPE_PLUGIN_WITH_RETURN_VALUE
+		-license="Apache-2.0"
+		-desc="Provides a terminal plugin for the packaging tools. Supports the complete submission as well as only the release preparation (for secondary packages)."
+		-keywords="Package, Repository, Submission"
+		-changelog="2026-06-30: v0.0.1 Initial version:\n  - Supports the automatic submission (default setting)\n  - Supports the release preparation (with mode=prepare)"
+		-flags=ENABLE_DEFAULTS
+		-requirepackages="pkg_packaging_tools"
+		-plugincommand="packaging"
+		-pluginmain="$packaging~plugin~start(<EXPRSTRING>,<PARAMLIST>)"
+		-requireversion="1.1.8.2605"
+	<endinfo>
+
+	<file name="<procpath>/packaging/plugin/start.nprc">
+		#***************************************************************************************************
+		* NUMERE-PROZEDUR: $start()
+		* =================================================================================================
+		* Hinzugefügt: 2026-06-30, um 08:18:49 *#
+		
+		##! \procedure start
+		##! Implements the plugin interface for the packaging tools package. The intended usage is via the 
+		##! command in the commandline as !!packaging "PACKAGEFILE" -set mode=submit repo=""!!. It is 
+		##! possible to pass an empty string, this will trigger a file dialog prompt for selecting the 
+		##! package file. It is possible to select the !!mode="prepare"!!, which does only prepare the files 
+		##! but not submit them. This is intended, if the repo is not the official package repository but a 
+		##! secondary one.
+		##!
+		##! \param _sExprString  The plugin expression string. Should contain the package file path but can 
+		##! be empty
+		##! \param paramList{}  (!!={}!!) The pluing parameters as key-value list
+		##! \return STR  Returns either the PR URL (for !!mode="submit"!!) or the folder path (for 
+		##! !!mode="prepare"!!)
+		procedure $start(_sExprString, paramList{} = {}) :: explicit mask
+			## packaging "" -set mode="submit"/"prepare" repo="" 
+			str sMode, sRepo
+			
+			if (_sExprString.len)
+				_sExprString = to_value(_sExprString);
+			endif
+			
+			{sMode, sRepo} = getkeyval(paramList{}, {"mode", "repo"}, {"submit", "<>/remotes/packaging-submit"});
+			
+			## If the user did not supply a correct file name, we will prompt him here
+			if (!findfile(_sExprString))
+				_sExprString = dialog "<scriptpath>/packages", "", "NumeRe Script File|*.nscr" -set type=filedialog title="Select package for release";
+			endif
+			
+			## Abort, if the package file is still empty or invalid
+			if (!findfile(_sExprString))
+				return "";
+			endif
+			
+			## Perform the relevant steps
+			if (sMode == "submit")
+				return $packaging~submit(_sExprString, sRepo);
+			elseif (sMode == "prepare")
+				return $packaging~prepareRelease(_sExprString, sRepo);
+			endif
+		endprocedure
+		
+		
+		#**Ende der Datei
+		* NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+		* https://www.numere.org/
+		**************************************************************************************************#
+		
+	<endfile>
+
+	return;
+<endinstall>
+
+warn "Dies ist ein Installations-Script. Um die enthaltenen Prozeduren zu installieren, muss es mit 'install \"<this>/plgn_packaging_tools_plugin\"' ausgeführt werden."
+
+
+#**Ende der Datei
+ * NumeRe: Framework für Numerische Rechnungen | Freie numerische Software unter der GNU GPL v3
+ * https://www.numere.org/
+ **************************************************************************************************#

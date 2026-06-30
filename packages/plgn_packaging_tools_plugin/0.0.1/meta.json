@@ -1,0 +1,13 @@
+{
+	"author": "Erik Hänel",
+	"changelog": "2026-06-30: v0.0.1 Initial version:\n  - Supports the automatic submission (default setting)\n  - Supports the release preparation (with mode=prepare)",
+	"description": "Provides a terminal plugin for the packaging tools. Supports the complete submission as well as only the release preparation (for secondary packages).",
+	"keywords": "Package, Repository, Submission",
+	"license": "Apache-2.0",
+	"manifest-version": "1.0.0",
+	"name": "Packaging Tools Plugin",
+	"requirements": {
+		"packages": "pkg_packaging_tools",
+		"version": "1.1.8.2605"
+	}
+}
